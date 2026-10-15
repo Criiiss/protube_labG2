@@ -1,13 +1,13 @@
 package com.tecnocampus.LS2.protube_back.profile.domain.model;
 
+import com.tecnocampus.LS2.protube_back.profile.domain.exception.InvalidUsernameException;
+import com.tecnocampus.LS2.protube_back.profile.domain.service.ProfileValidator;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 public class UserProfile {
-
-    private static final long MAX_BIO_LENGTH = 250;
-    private static final long MAX_DISPLAY_NAME_LENGTH = 50;
 
     @Getter
     private final Long userId;
@@ -25,23 +25,27 @@ public class UserProfile {
     private String bannerUrl;
     @Getter
     private ProfilePrivacySettings privacySettings;
+    private final ProfileValidator profileValidator;
+
 
     public UserProfile(Long userId, String username, String displayName, String avatarUrl, String biography, String bannerUrl,ProfilePrivacySettings privacySettings, LocalDateTime createdAt) {
         if (createdAt == null) throw new IllegalArgumentException("Creation date cannot be null");
         if (userId == null)throw new IllegalArgumentException("User id cannot be null");
 
+        this.profileValidator = new ProfileValidator();
         this.userId = userId;
-        this.username = normalizeUsername(username);
-        this.displayName = validateDisplayName(displayName);
-        this.biography = validateBiography(biography);
+        this.username = profileValidator.normalizeUsername(username);
+        this.displayName = profileValidator.validateDisplayName(displayName);
+        this.biography = profileValidator.validateBiography(biography);
         this.avatarUrl = avatarUrl;
         this.bannerUrl = bannerUrl;
+        privacySettings = privacySettings == null ? ProfilePrivacySettings.defaultSettings() : privacySettings;
         this.privacySettings = privacySettings;
         this.createdAt = createdAt;
     }
     public void updateProfile(String displayName,String biography,String avatarUrl,String bannerUrl) {
-        this.displayName = validateDisplayName(displayName);
-        this.biography = validateBiography(biography);
+        this.displayName = profileValidator.validateDisplayName(displayName);
+        this.biography = profileValidator.validateBiography(biography);
         this.avatarUrl = avatarUrl;
         this.bannerUrl = bannerUrl;
     }
@@ -51,21 +55,7 @@ public class UserProfile {
      * @param username
      */
     public void changeUserName (String username) {
-        this.username = normalizeUsername(username);
-    }
-
-    /**
-     * username has to be lowercase, no spaces, and only letters, numbers, and underscores
-     * @param username
-     * @return
-     */
-    private static String normalizeUsername(String username) {
-        if (username == null || username.isBlank())throw new IllegalArgumentException("Username cannot be null or blank");
-
-        String normalizedUsername = username.toLowerCase().trim();
-        if (!normalizedUsername.matches("^[a-z0-9_]+$"))throw new IllegalArgumentException("Username can only contain lowercase letters, numbers, and underscores");
-
-        return normalizedUsername;
+        this.username = profileValidator.normalizeUsername(username);
     }
 
     /**
@@ -73,9 +63,7 @@ public class UserProfile {
      * @param profilePrivacySettings
      */
     public void updatePrivacySettings(ProfilePrivacySettings profilePrivacySettings) {
-        if (profilePrivacySettings == null) throw new IllegalArgumentException("Profile privacy settings cannot be null");
-
-        this.privacySettings = profilePrivacySettings;
+        this.privacySettings = Objects.requireNonNull(profilePrivacySettings, "Privacy settings cannot be null");
     }
 
     /**
@@ -92,23 +80,9 @@ public class UserProfile {
         this.bannerUrl = null;
     }
 
-    /**
-     * validate the display name that is not null or exceed max length
-     * @param displayName
-     * @return
-     */
-    private String validateDisplayName(String displayName) {
-        if (displayName == null || displayName.isBlank()) throw new IllegalArgumentException("Display name cannot be null or blank");
-        if (displayName.length() > MAX_DISPLAY_NAME_LENGTH) throw new IllegalArgumentException("Display name cannot exceed " + MAX_DISPLAY_NAME_LENGTH + " characters");
-        return displayName;
-    }
 
-    private String validateBiography(String biography) {
-        if (biography == null) return null;
-        if (biography != null && biography.length() > MAX_BIO_LENGTH) throw new IllegalArgumentException("Biography cannot exceed " + MAX_BIO_LENGTH + " characters");
 
-        return biography;
-    }
+
 
 
 
