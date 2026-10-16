@@ -8,12 +8,13 @@ public class ProfileValidator {
     private static final long MIN_USERNAME_LENGTH = 3;
     private static final long MAX_USERNAME_LENGTH = 20;
 
+
     /**
      * username has to be lowercase, no spaces, and only letters, numbers, and underscores
      * @param username
      * @return
      */
-    public static String normalizeUsername(String username) {
+    public String normalizeUsername(String username) {
         if (username == null || username.isEmpty()) throw new InvalidUsernameException(username,"Username cannot be null or empty");
 
         String normalizedUsername = username.toLowerCase().trim();
