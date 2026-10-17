@@ -29,7 +29,7 @@ public class ProfileApplicationService implements GetMyProfileUseCase, GetPublic
     public UserProfile changeUserName(long userId, ChangeUserNameCommand command) {
         UserProfile profile = findUserProfileById(userId);
         String normalizeUsername = profileValidator.normalizeUsername(command.username());
-        boolean exists = profileRepository.existsByUserNameNotID(normalizeUsername, userId);
+        boolean exists = profileRepository.existsByUsernameNotID(normalizeUsername, userId);
         if(exists) throw new UserNameAlreadyExistException(normalizeUsername);
         profile.changeUserName(normalizeUsername);
         return profileRepository.save(profile);

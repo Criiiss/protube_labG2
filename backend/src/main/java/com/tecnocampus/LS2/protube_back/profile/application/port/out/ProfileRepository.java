@@ -9,6 +9,6 @@ public interface ProfileRepository {
     Optional<UserProfile> findByUsername(String username);
     Optional<UserProfile> findById(Long id);
 
-    boolean existsByUserNameNotID(String username, Long id);
+    boolean existsByUsernameNotID(String username, Long id);
     UserProfile save(UserProfile userProfile);
 }

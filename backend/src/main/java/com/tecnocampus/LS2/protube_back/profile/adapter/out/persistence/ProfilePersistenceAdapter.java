@@ -18,7 +18,7 @@ public class ProfilePersistenceAdapter implements ProfileRepository {
 
     @Override
     public Optional<UserProfile> findByUsername(String username) {
-        return repository.findByUserName(username).map(mapper::toDomain);
+        return repository.findByUsername(username).map(mapper::toDomain);
     }
 
     @Override
@@ -27,8 +27,8 @@ public class ProfilePersistenceAdapter implements ProfileRepository {
     }
 
     @Override
-    public boolean existsByUserNameNotID(String username, Long id) {
-        return repository.existsByUserNameNotID(username, id);
+    public boolean existsByUsernameNotID(String username, Long id) {
+        return repository.existsByUsernameNotID(username, id);
     }
 
     @Override
