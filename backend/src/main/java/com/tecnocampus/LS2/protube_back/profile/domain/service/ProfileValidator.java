@@ -33,6 +33,7 @@ public class ProfileValidator {
     public String validateDisplayName(String displayName) {
         if (displayName == null || displayName.isBlank()) throw new IllegalArgumentException("Display name cannot be null or blank");
         if (displayName.length() > MAX_DISPLAY_NAME_LENGTH) throw new IllegalArgumentException("Display name cannot exceed " + MAX_DISPLAY_NAME_LENGTH + " characters");
+        displayName = displayName.trim();
         return displayName;
     }
 
