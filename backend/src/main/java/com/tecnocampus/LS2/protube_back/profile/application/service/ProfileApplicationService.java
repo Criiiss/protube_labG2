@@ -13,13 +13,12 @@ import com.tecnocampus.LS2.protube_back.profile.domain.service.ProfileValidator;
 import org.springframework.stereotype.Service;
 
 @Service
-public class ProfileApplicationService implements GetMyProfileUseCase, GetPublicProfileUseCase, UpdateProfileUseCase, ChangeUserNameUseCase, UpdatePrivacySettingsUseCase {
+public class ProfileApplicationService implements GetMyProfileUseCase, GetPublicProfileUseCase, UpdateProfileUseCase, ChangeUserNameUseCase, UpdatePrivacySettingsUseCase, RemoveAvatarUseCase, RemoveBannerUseCase {
 
     private final ProfileRepository profileRepository;
     private final ProfileValidator profileValidator;
 
 
-    // TODO repository da error por que faltan clases de repo
     public ProfileApplicationService(ProfileRepository profileRepository, ProfileValidator profileValidator) {
         this.profileRepository = profileRepository;
         this.profileValidator = profileValidator;
@@ -63,5 +62,19 @@ public class ProfileApplicationService implements GetMyProfileUseCase, GetPublic
 
     private UserProfile findUserProfileById(Long userId) {
         return profileRepository.findById(userId).orElseThrow(() -> new ProfileNotFoundException(userId));
+    }
+
+    @Override
+    public UserProfile removeAvatar(long userId) {
+        UserProfile profile = findUserProfileById(userId);
+        profile.removeAvatar();
+        return profileRepository.save(profile);
+    }
+
+    @Override
+    public UserProfile removeBanner(long userId) {
+        UserProfile profile = findUserProfileById(userId);
+        profile.removeBanner();
+        return profileRepository.save(profile);
     }
 }

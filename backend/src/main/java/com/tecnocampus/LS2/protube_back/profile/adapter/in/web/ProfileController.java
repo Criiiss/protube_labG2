@@ -14,14 +14,18 @@ public class ProfileController {
     private final ChangeUserNameUseCase changeUserNameUseCase;
     private final UpdatePrivacySettingsUseCase updatePrivacySettingsUseCase;
     private final ProfileWebMapper mapper;
+    private final RemoveBannerUseCase removeBannerUseCase;
+    private final RemoveAvatarUseCase removeAvatarUseCase;
 
-    public ProfileController(GetMyProfileUseCase getMyProfileUseCase, GetPublicProfileUseCase getPublicProfileUseCase, UpdateProfileUseCase updateProfileUseCase, ChangeUserNameUseCase changeUserNameUseCase, UpdatePrivacySettingsUseCase updatePrivacySettingsUseCase, ProfileWebMapper mapper) {
+    public ProfileController(GetMyProfileUseCase getMyProfileUseCase, GetPublicProfileUseCase getPublicProfileUseCase, UpdateProfileUseCase updateProfileUseCase, ChangeUserNameUseCase changeUserNameUseCase, UpdatePrivacySettingsUseCase updatePrivacySettingsUseCase, ProfileWebMapper mapper, RemoveBannerUseCase removeBannerUseCase, RemoveAvatarUseCase removeAvatarUseCase) {
         this.getMyProfileUseCase = getMyProfileUseCase;
         this.getPublicProfileUseCase = getPublicProfileUseCase;
         this.updateProfileUseCase = updateProfileUseCase;
         this.changeUserNameUseCase = changeUserNameUseCase;
         this.updatePrivacySettingsUseCase = updatePrivacySettingsUseCase;
         this.mapper = mapper;
+        this.removeBannerUseCase = removeBannerUseCase;
+        this.removeAvatarUseCase = removeAvatarUseCase;
     }
 
     @GetMapping("/me")
@@ -51,7 +55,11 @@ public class ProfileController {
 
     @DeleteMapping("/me/avatar")
     public ResponseEntity<MyProfileResponseDTO> removeAvatar(@RequestParam Long userId) {
-        return ResponseEntity.ok(mapper.toMyProfileResponse(updateProfileUseCase.updateProfile(userId, mapper.toUpdateProfileCommand(new UpdateProfileRequestDTO(null, null, null, null)))));
+        return ResponseEntity.ok(mapper.toMyProfileResponse(removeAvatarUseCase.removeAvatar(userId)));
     }
 
+    @DeleteMapping("/me/banner")
+    public ResponseEntity<MyProfileResponseDTO> removeBanner(@RequestParam Long userId) {
+        return ResponseEntity.ok(mapper.toMyProfileResponse(removeBannerUseCase.removeBanner(userId)));
+    }
 }
