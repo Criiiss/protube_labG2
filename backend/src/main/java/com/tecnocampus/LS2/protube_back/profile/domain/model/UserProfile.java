@@ -5,6 +5,7 @@ import com.tecnocampus.LS2.protube_back.profile.domain.service.ProfileValidator;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Objects;
 
 public class UserProfile {
@@ -12,7 +13,7 @@ public class UserProfile {
     @Getter
     private final Long userId;
     @Getter
-    private final LocalDateTime createdAt;
+    private final OffsetDateTime createdAt;
     @Getter
     private String username;  // username unico x usuario
     @Getter
@@ -28,7 +29,8 @@ public class UserProfile {
     private final ProfileValidator profileValidator;
 
 
-    public UserProfile(Long userId, String username, String displayName, String avatarUrl, String biography, String bannerUrl,ProfilePrivacySettings privacySettings, LocalDateTime createdAt) {
+
+    public UserProfile(Long userId, String username, String displayName, String avatarUrl, String biography, String bannerUrl,ProfilePrivacySettings privacySettings, OffsetDateTime createdAt) {
         if (createdAt == null) throw new IllegalArgumentException("Creation date cannot be null");
         if (userId == null)throw new IllegalArgumentException("User id cannot be null");
 
