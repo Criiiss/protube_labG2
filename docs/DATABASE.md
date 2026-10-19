@@ -120,7 +120,8 @@ Gracias a ella:
 ```mermaid
 flowchart LR
     subgraph AUTH["👤 Usuarios"]
-        users
+        users["users<br/>(identidad / login)"]
+        user_profiles["user_profiles<br/>(perfil público)"]
     end
     subgraph CAT["🎬 Catálogo"]
         videos
@@ -137,6 +138,7 @@ flowchart LR
     subgraph ANA["📊 Analytics"]
         video_views
     end
+    users --- user_profiles
     users --> videos
     videos --- video_categories --- categories
     videos --- video_tags --- tags
@@ -154,6 +156,7 @@ flowchart LR
 
 ```mermaid
 erDiagram
+    users ||--|| user_profiles : "tiene"
     users ||--o{ videos : "sube"
     users ||--o{ comments : "escribe"
     videos ||--o{ comments : "tiene"
@@ -176,10 +179,17 @@ erDiagram
         varchar password_hash "NULL si no es LOCAL"
         varchar auth_provider "LOCAL | GOOGLE | IMPORTED"
         varchar provider_id "sub de Google"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    user_profiles {
+        bigint user_id PK,FK
         varchar display_name
         varchar avatar_url
+        varchar banner_url
         text description
-        timestamptz created_at
+        varchar subscriptions_visibility "PUBLIC | PRIVATE"
+        varchar liked_videos_visibility "PUBLIC | PRIVATE"
         timestamptz updated_at
     }
     videos {
@@ -245,7 +255,8 @@ erDiagram
 
 | Tabla | Para qué sirve | Requisitos |
 |---|---|---|
-| `users` | Registro/login local, OAuth Google y canales importados | US-01, US-02, US-03 |
+| `users` | Identidad: registro/login local, OAuth Google y canales importados | US-01, US-02, US-03 |
+| `user_profiles` | Perfil público: nombre visible, avatar, banner, descripción y privacidad | Epic 2 (perfil) |
 | `videos` | Catálogo, reproducción, subida y edición | US-04 … US-07 |
 | `categories`, `tags` + `video_categories`, `video_tags` | Metadatos editables (relación N:M) | US-07 |
 | `comments` | Comentarios y respuestas en hilo | US-09, US-10 |
@@ -276,6 +287,43 @@ erDiagram
 
 > Un usuario `IMPORTED` no puede iniciar sesión (no tiene credenciales): solo existe para ser autor de
 > vídeos y comentarios importados.
+
+### 🪪 `users` vs `user_profiles` — identidad separada del perfil
+
+```mermaid
+flowchart LR
+    subgraph ID["users · identidad (¿quién eres?)"]
+        direction TB
+        a["username · email<br/>password_hash<br/>auth_provider · provider_id"]
+    end
+    subgraph PF["user_profiles · perfil (¿cómo te ven?)"]
+        direction TB
+        b["display_name · avatar_url · banner_url<br/>description<br/>subscriptions_visibility · liked_videos_visibility"]
+    end
+    ID -- "1 : 1<br/>user_profiles.user_id = users.id" --- PF
+    L["🔐 Login / Spring Security"] --> ID
+    E["✏️ Editar perfil / ver canal"] --> PF
+```
+
+| | `users` | `user_profiles` |
+|---|---|---|
+| Responde a | ¿Quién eres y cómo entras? | ¿Qué se muestra de ti? |
+| Lo usa | Login, registro, OAuth (`UserDetailsService`) | Página de canal, editor de perfil |
+| Cambia | Casi nunca | A menudo |
+| Clave | `id` | `user_id` (PK **y** FK a `users.id`) |
+
+**Por qué:** el login solo carga lo que necesita (credenciales), y editar el perfil nunca toca la entidad que usa
+Spring Security. Además añadir campos de perfil no afecta al código de autenticación.
+
+**Visibilidad** (`subscriptions_visibility`, `liked_videos_visibility`):
+
+| Valor | Quién ve la lista |
+|---|---|
+| `PRIVATE` *(por defecto)* | Solo el propio usuario |
+| `PUBLIC` | Cualquiera que visite su canal |
+
+> ℹ️ `subscriptions_visibility` se deja preparado para la mejora "Subscriptions to other users"; la tabla de
+> suscripciones todavía no existe.
 
 ### 🎬 `videos`
 
@@ -343,6 +391,9 @@ La BD **rechaza** con un error de constraint cualquier dato que no siga estas re
 | Login con Google: buscar por `auth_provider = 'GOOGLE'` + `provider_id` | Login OAuth | `ux_users_provider` (único) |
 | Usuario `LOCAL` siempre con email y `password_hash` | Registro | `chk_users_local_has_credentials` |
 | `auth_provider` solo `LOCAL`, `GOOGLE` o `IMPORTED` | Enum Java | `chk_users_provider` |
+| **Todo usuario tiene su fila en `user_profiles`**, creada en la **misma transacción** que el usuario | Registro, primer login con Google, importador | ⚠️ **Solo el servicio** (la BD no lo puede exigir) |
+| Visibilidades solo `PUBLIC` o `PRIVATE` (por defecto `PRIVATE`) | Enum Java, editor de perfil | `chk_user_profiles_subscriptions_visibility`, `chk_user_profiles_liked_videos_visibility` |
+| Respetar la visibilidad: si es `PRIVATE`, la API no devuelve la lista a otros usuarios | Endpoints de canal / likes / suscripciones | ⚠️ **Solo el servicio** |
 | Contadores nunca negativos | Likes / quitar like | `chk_videos_view_count_positive`, `chk_videos_like_count_positive`, `chk_comments_like_count_positive` |
 | `width`, `height` > 0 y `duration_sec` ≥ 0 (o `NULL`) | Subida e importación | `chk_videos_width_positive`, `chk_videos_height_positive`, `chk_videos_duration_positive` |
 | Comentario no vacío | Comentar / responder | `chk_comments_content_not_blank` |
@@ -370,7 +421,8 @@ UPDATE videos SET like_count = like_count + 1 WHERE id = :videoId;
 
 ```mermaid
 flowchart TD
-    U["🗑️ DELETE user"] --> V["videos del usuario → se borran"]
+    U["🗑️ DELETE user"] --> P["user_profiles del usuario → se borra"]
+    U --> V["videos del usuario → se borran"]
     U --> C["comments del usuario → se borran"]
     U --> L["video_likes / comment_likes del usuario → se borran"]
     U --> VV["video_views del usuario → user_id = NULL<br/>(se conservan las estadísticas)"]
@@ -381,7 +433,7 @@ flowchart TD
 
 | Se borra… | Efecto |
 |---|---|
-| Un usuario | Se borran sus vídeos, comentarios y likes. Sus visualizaciones quedan como anónimas |
+| Un usuario | Se borran su perfil, sus vídeos, comentarios y likes. Sus visualizaciones quedan como anónimas |
 | Un vídeo | Se borran sus comentarios, likes, vistas y enlaces a tags/categorías. **Los tags y categorías se mantienen** |
 | Un comentario | Se borran sus respuestas y sus likes |
 | Un tag o categoría | Desaparece de todos los vídeos (el vídeo no se borra) |
@@ -409,6 +461,8 @@ Postgres crea índices automáticos para las `PRIMARY KEY` y los `UNIQUE`. El re
 | `ix_video_views_user` | `video_views(user_id)` | Historial de un usuario, borrado de usuario |
 | `ux_users_provider` | `users(auth_provider, provider_id)` | Login con Google (y evita duplicados) |
 
+> `user_profiles.user_id` no necesita índice propio: al ser la PK ya lo tiene.
+>
 > Regla aplicada: **toda clave foránea tiene un índice** que empieza por ella. Postgres no los crea solo y sin
 > ellos los JOIN y los `ON DELETE CASCADE` recorren la tabla entera.
 
@@ -420,17 +474,17 @@ Al arrancar, el importador lee cada `<id>.json` de `ENV_PROTUBE_STORE_DIR` y lo 
 
 ```mermaid
 flowchart LR
-    J["📄 12.json"] --> U1["user → users<br/>(IMPORTED)"]
+    J["📄 12.json"] --> U1["user → users (IMPORTED)<br/>+ user_profiles"]
     J --> V["title, meta.description,<br/>width, height, duration → videos"]
     J --> T["meta.tags → tags + video_tags"]
     J --> C["meta.categories → categories + video_categories"]
     J --> CM["meta.comments[] → comments"]
-    CM --> U2["comments[].author → users<br/>(IMPORTED)"]
+    CM --> U2["comments[].author → users (IMPORTED)<br/>+ user_profiles"]
 ```
 
 | Campo del JSON | Destino | Nota |
 |---|---|---|
-| `user` | `users.username` (`IMPORTED`) | Reutilizar si ya existe |
+| `user` | `users.username` (`IMPORTED`) + `user_profiles.display_name` | Reutilizar si ya existe. Crear también su perfil (visibilidades por defecto) |
 | `title` | `videos.title` | |
 | `meta.description` | `videos.description` | |
 | `width`, `height`, `duration` | `videos.width/height/duration_sec` | |
@@ -439,7 +493,7 @@ flowchart LR
 | `<id>.mp4` / `<id>.webp` | `videos.file_name` / `thumbnail_name` | |
 | `meta.tags[]` | `tags.name` + `video_tags` | **En minúsculas**, reutilizar si existe |
 | `meta.categories[]` | `categories.name` + `video_categories` | **En minúsculas**, reutilizar si existe |
-| `meta.comments[].author` | `users.username` (`IMPORTED`) | |
+| `meta.comments[].author` | `users.username` (`IMPORTED`) + `user_profiles.display_name` | Igual que `user` |
 | `meta.comments[].text` | `comments.content` | Saltar los vacíos |
 | `meta.comments[].like_count` | `comments.like_count` | |
 | `meta.comments[].timestamp` | `comments.created_at` | |
@@ -462,6 +516,8 @@ Como Hibernate está en `validate`, las entidades deben coincidir **exactamente*
 | `TIMESTAMPTZ` | `Instant` (o `OffsetDateTime`) | `@CreationTimestamp` / `@UpdateTimestamp` |
 | `NUMERIC(10,2)` | `BigDecimal` | `@Column(precision = 10, scale = 2)` |
 | `auth_provider` | `enum AuthProvider` | `@Enumerated(EnumType.STRING)` |
+| `*_visibility` | `enum Visibility { PUBLIC, PRIVATE }` | `@Enumerated(EnumType.STRING)` |
+| `user_profiles.user_id` (PK = FK) | `User user` en `UserProfile` | `@Id Long userId` + `@OneToOne @MapsId` |
 | Tabla puente (`video_tags`) | `Set<Tag>` | `@ManyToMany` + `@JoinTable` |
 | `parent_id` | `Comment parent` | `@ManyToOne` |
 
@@ -484,6 +540,7 @@ Como Hibernate está en `validate`, las entidades deben coincidir **exactamente*
 | Borrar todo el esquema (empezar de cero) | `docker exec postgres_db psql -U admin -d postgres -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"` |
 | Borrar también el contenedor y sus datos | `docker compose down -v` |
 | Aplicar las migraciones | Arrancar el backend con la run config **Production** |
+| Aplicar las migraciones **sin arrancar el backend** | `docker run --rm --network container:postgres_db -v "<ruta>/backend/src/main/resources/db/migration:/flyway/sql:ro" flyway/flyway:10.10 -url=jdbc:postgresql://localhost:5432/postgres -user=admin -password=password migrate` |
 
 ### Añadir un cambio al esquema (paso a paso)
 
