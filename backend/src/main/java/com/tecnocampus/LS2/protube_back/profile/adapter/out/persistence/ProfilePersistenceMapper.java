@@ -4,8 +4,17 @@ import com.tecnocampus.LS2.protube_back.profile.domain.model.ProfilePrivacySetti
 import com.tecnocampus.LS2.protube_back.profile.domain.model.UserProfile;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
+import java.time.OffsetDateTime;
+
 @Component
 public class ProfilePersistenceMapper {
+
+    private final Clock clock;
+
+    public ProfilePersistenceMapper(Clock clock) {
+        this.clock = clock;
+    }
 
     public UserProfile toDomain(ProfileJpaEntity entity) {
         ProfilePrivacySettings privacySettings = new ProfilePrivacySettings(
@@ -14,27 +23,25 @@ public class ProfilePersistenceMapper {
         );
 
         return new UserProfile(
-                entity.getId(),
-                entity.getUsername(),
+                entity.getUserId(),
+                entity.getUser().getUsername(),
                 entity.getDisplayName(),
                 entity.getAvatarUrl(),
                 entity.getBiography(),
                 entity.getBannerUrl(),
                 privacySettings,
-                entity.getCreatedAt()
-
+                entity.getUser().getCreatedAt()
         );
     }
 
-    public ProfileJpaEntity toEntity(UserProfile profile) {
+    public ProfileJpaEntity toEntity(UserProfile profile, UserJpaEntity user) {
         return new ProfileJpaEntity(
-                profile.getUserId(),
-                profile.getUsername(),
+                user,
                 profile.getDisplayName(),
                 profile.getAvatarUrl(),
                 profile.getBiography(),
                 profile.getBannerUrl(),
-                profile.getCreatedAt(),
+                OffsetDateTime.now(clock),
                 profile.getPrivacySettings().getSubscriptionsVisibility(),
                 profile.getPrivacySettings().getLikedVideosVisibility()
         );

@@ -7,8 +7,7 @@ import java.util.Optional;
 public interface ProfileRepository {
 
     Optional<UserProfile> findByUsername(String username);
-    Optional<UserProfile> findById(Long id);
-
-    boolean existsByUsernameNotID(String username, Long id);
+    Optional<UserProfile> findById(Long userId);
+    boolean existsByUsernameNotID(String username, Long userId);
     UserProfile save(UserProfile userProfile);
 }
