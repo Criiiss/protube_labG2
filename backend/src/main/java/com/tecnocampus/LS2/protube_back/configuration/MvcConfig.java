@@ -34,7 +34,10 @@ public class MvcConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOriginPatterns("*");
+                .allowedOrigins(env.getProperty("protube.auth.frontend-url", "http://localhost:5173"))
+                .allowedMethods("GET", "POST", "PATCH", "DELETE", "OPTIONS")
+                .allowedHeaders("Content-Type", "X-Protube-Request")
+                .allowCredentials(true);
         registry.addMapping("/auth/**")
                 .allowedOriginPatterns("*");
     }

@@ -1,12 +1,16 @@
 import { useRef, useState } from 'react';
 import { Icon } from './Icon';
+import type { SessionUser } from '../../auth/api';
 
 interface HeaderProps {
   onSearch: (query: string) => void;
   onAction: (message: string) => void;
+  user?: SessionUser | null;
+  sessionLoading?: boolean;
+  onLogout?: () => void;
 }
 
-export function Header({ onSearch, onAction }: HeaderProps) {
+export function Header({ onSearch, onAction, user, sessionLoading, onLogout }: HeaderProps) {
   const [query, setQuery] = useState('');
   const [pinned, setPinned] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -51,7 +55,9 @@ export function Header({ onSearch, onAction }: HeaderProps) {
         <button
           className="icon-button"
           aria-label="Subir contenido"
-          onClick={() => onAction('La subida de contenido estará disponible próximamente.')}
+          onClick={() => {
+            window.location.hash = user ? '/studio' : '/login';
+          }}
         >
           <Icon name="plus" />
         </button>
@@ -62,13 +68,33 @@ export function Header({ onSearch, onAction }: HeaderProps) {
         >
           <Icon name="bell" />
         </button>
-        <button
-          className="avatar"
-          aria-label="Perfil de usuario"
-          onClick={() => onAction('El perfil estará disponible al conectar tu cuenta.')}
-        >
-          <Icon name="user" />
-        </button>
+        {user ? (
+          <details className="user-menu">
+            <summary className="avatar" aria-label="Menú de usuario">
+              {user.avatarUrl && /^https?:\/\//.test(user.avatarUrl) ? (
+                <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" />
+              ) : (
+                <Icon name="user" />
+              )}
+            </summary>
+            <div className="dropdown-panel">
+              <strong>{user.displayName}</strong>
+              <a href="#/profile">Tu perfil</a>
+              <a href="#/studio">Studio</a>
+              <a href="#/settings">Ajustes</a>
+              <button onClick={onLogout}>Cerrar sesión</button>
+            </div>
+          </details>
+        ) : (
+          !sessionLoading && (
+            <div className="session-links">
+              <a href="#/login">Acceder</a>
+              <a className="register-link" href="#/register">
+                Registrarse
+              </a>
+            </div>
+          )
+        )}
       </div>
     </header>
   );

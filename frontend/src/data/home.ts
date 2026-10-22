@@ -11,6 +11,8 @@ export interface Video {
   duration: string;
   categoryId: string;
   thumbnail: string;
+  viewCount?: number;
+  createdAt?: string;
 }
 
 // Replace these arrays with API data without changing the presentation components.

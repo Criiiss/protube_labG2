@@ -66,6 +66,10 @@ public class UserJpaEntity {
         this.username = username;
     }
 
+    public void changePasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
 
 
 }

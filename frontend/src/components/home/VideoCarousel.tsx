@@ -1,9 +1,18 @@
 import { useState } from 'react';
 import type { Video } from '../../data/home';
 import { VideoCard } from './VideoCard';
+import type { VideoAction } from './VideoCard';
 import { Icon } from './Icon';
 
-export function VideoCarousel({ videos, onSelect }: { videos: Video[]; onSelect: (video: Video) => void }) {
+export function VideoCarousel({
+  videos,
+  onSelect,
+  onAction,
+}: {
+  videos: Video[];
+  onSelect: (video: Video) => void;
+  onAction?: (action: VideoAction, video: Video) => void;
+}) {
   const [position, setPosition] = useState(0);
   const current = position % videos.length;
   return (
@@ -25,7 +34,7 @@ export function VideoCarousel({ videos, onSelect }: { videos: Video[]; onSelect:
               aria-hidden={offset !== 0}
               inert={offset !== 0}
             >
-              <VideoCard video={video} onSelect={onSelect} />
+              <VideoCard video={video} onSelect={onSelect} onAction={offset === 0 ? onAction : undefined} />
             </div>
           );
         })}
