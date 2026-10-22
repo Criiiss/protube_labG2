@@ -8,9 +8,10 @@
                     <option name="environmentProperties">
                         <map>
                             <entry key="ENV_PROTUBE_STORE_DIR" value="C:\Users\videos\" />
-                            <entry key="ENV_PROTUBE_DB" value="protube-db-dev" />
-                            <entry key="ENV_PROTUBE_DB_PWD" value="secret" />
-                            <entry key="ENV_PROTUBE_DB_USER" value="postgres" />
+                            <entry key="ENV_PROTUBE_DB" value="postgres" />
+                            <entry key="ENV_PROTUBE_DB_HOST" value="localhost" />
+                            <entry key="ENV_PROTUBE_DB_PASS" value="password" />
+                            <entry key="ENV_PROTUBE_DB_USER" value="admin" />
                         </map>
                     </option>
                     <option name="jreName" value="#USE_PROJECT_JDK" />
