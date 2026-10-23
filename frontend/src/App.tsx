@@ -1,43 +1,73 @@
+import { useState } from 'react';
 import './App.css';
-import { useAllVideos } from './useAllVideos';
-import ProfilePage from './profile/ProfilePage';
 import './profile/profile.css';
+import ProfilePage from './profile/ProfilePage';
+import { useAllVideos } from './useAllVideos';
+
+type AppView = 'videos' | 'profile';
 
 function App() {
+  const [view, setView] = useState<AppView>('profile');
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src="/protube-logo-removebg-preview.png" className="App-logo" alt="logo" />
-        <ContentApp />
-      </header>
+      <nav className="app-navigation" aria-label="Navegación principal">
+        <img src="/protube-logo-removebg-preview.png" className="app-navigation-logo" alt="ProTube" />
+
+        <div className="app-navigation-actions">
+          <button type="button" className={view === 'videos' ? 'active' : ''} onClick={() => setView('videos')}>
+            Vídeos
+          </button>
+
+          <button type="button" className={view === 'profile' ? 'active' : ''} onClick={() => setView('profile')}>
+            Mi canal
+          </button>
+        </div>
+      </nav>
+
+      {view === 'profile' ? <ProfilePage userId={1} /> : <ContentApp />}
     </div>
   );
 }
 
 function ContentApp() {
   const { loading, message, value } = useAllVideos();
+
   switch (loading) {
     case 'loading':
-      return <div>Loading...</div>;
+      return (
+        <main className="legacy-content">
+          <p>Loading...</p>
+        </main>
+      );
+
     case 'error':
       return (
-        <div>
-          <h3>Error</h3> <p>{message}</p>
-        </div>
+        <main className="legacy-content">
+          <h3>Error</h3>
+          <p>{message}</p>
+        </main>
       );
+
     case 'success':
       return (
-        <>
+        <main className="legacy-content">
           <strong>Videos availables:</strong>
           <ul>
             {value.map((item) => (
-              <li>{item}</li>
+              <li key={item}>{item}</li>
             ))}
           </ul>
-        </>
+        </main>
+      );
+
+    default:
+      return (
+        <main className="legacy-content">
+          <p>Idle...</p>
+        </main>
       );
   }
-  return <div>Idle...</div>;
 }
 
 export default App;

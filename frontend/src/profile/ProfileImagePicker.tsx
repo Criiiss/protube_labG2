@@ -1,3 +1,5 @@
+import type { ChangeEvent } from 'react';
+
 interface ProfileImagePickerProps {
   label: string;
   value: string | null;
@@ -20,7 +22,7 @@ function ProfileImagePicker({
 }: ProfileImagePickerProps) {
   const inputId = `profile-image-${aspectRatio}`;
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>): void => {
     const file = event.target.files?.[0];
 
     if (!file) {

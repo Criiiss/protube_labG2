@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { PublicProfile, UpdateProfileRequest } from './types';
 import ProfileImagePicker from './ProfileImagePicker';
+import type { FormEvent } from 'react';
 
 interface ProfileEditFormProps {
   profile: PublicProfile;
@@ -44,16 +45,19 @@ function ProfileEditForm({
   const validateForm = (): string | null => {
     const normalizedUsername = username.trim().toLowerCase();
     if (!displayName.trim()) return 'El nombre del canal es obligatorio.';
-    if (displayName.trim().length > MAX_DISPLAY_NAME_LENGTH) return `El nombre no puede superar los ${MAX_DISPLAY_NAME_LENGTH} caracteres.`;
+    if (displayName.trim().length > MAX_DISPLAY_NAME_LENGTH)
+      return `El nombre no puede superar los ${MAX_DISPLAY_NAME_LENGTH} caracteres.`;
     if (normalizedUsername.length < MIN_USERNAME_LENGTH || normalizedUsername.length > MAX_USERNAME_LENGTH) {
       return `El nombre de usuario debe tener entre ${MIN_USERNAME_LENGTH} y ${MAX_USERNAME_LENGTH} caracteres.`;
     }
-    if (!/^[a-z0-9_]+$/.test(normalizedUsername)) return 'El nombre de usuario solo puede contener letras minúsculas, números y guiones bajos.';
-    if (biography.length > MAX_BIOGRAPHY_LENGTH) return `La biografía no puede superar los ${MAX_BIOGRAPHY_LENGTH} caracteres.`;
+    if (!/^[a-z0-9_]+$/.test(normalizedUsername))
+      return 'El nombre de usuario solo puede contener letras minúsculas, números y guiones bajos.';
+    if (biography.length > MAX_BIOGRAPHY_LENGTH)
+      return `La biografía no puede superar los ${MAX_BIOGRAPHY_LENGTH} caracteres.`;
     return null;
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     setError(null);
     const validationError = validateForm();

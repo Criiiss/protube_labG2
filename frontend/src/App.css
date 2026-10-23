@@ -30,3 +30,80 @@
     transform: rotate(360deg);
   }
 }
+
+.App {
+  min-height: 100vh;
+  text-align: left;
+  background: #f7f8fc;
+}
+
+.App-header {
+  min-height: auto;
+  display: block;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+}
+
+.app-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 72px;
+  padding: 12px 32px;
+  background: #ffffff;
+  border-bottom: 1px solid #e8eaf1;
+}
+
+.app-navigation-logo {
+  width: 130px;
+  max-height: 48px;
+  object-fit: contain;
+}
+
+.app-navigation-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.app-navigation-actions button {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: #656b7d;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.app-navigation-actions button.active,
+.app-navigation-actions button:hover {
+  color: #ffffff;
+  background: #635bff;
+}
+
+.legacy-content {
+  padding: 32px;
+}
+
+@media (max-width: 600px) {
+  .app-navigation {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 16px 20px;
+  }
+
+  .app-navigation-actions {
+    width: 100%;
+  }
+
+  .app-navigation-actions button {
+    flex: 1;
+  }
+
+  .legacy-content {
+    padding: 20px;
+  }
+}
