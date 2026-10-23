@@ -34,14 +34,12 @@ const formatCreationDate = (createdAt: string): string => {
   }).format(date);
 };
 
-const getInitials = (displayName: string | null): string => {
-  if (!displayName?.trim()) {
-    return '?';
-  }
-
-  return displayName
-    .trim()
-    .split(/\s+/)
+const getInitials = (displayName: string | null, username: string): string => {
+  const source = displayName?.trim() || username.trim();
+  if (!source) return '?';
+  return source
+    .split(/[\s_]+/)
+    .filter(Boolean)
     .map((word) => word[0])
     .join('')
     .slice(0, 2)
@@ -49,33 +47,36 @@ const getInitials = (displayName: string | null): string => {
 };
 
 function ProfileHeader({ profile, isOwner, onEdit }: ProfileHeaderProps) {
+  const hasBanner = Boolean(profile.bannerUrl);
   const bannerUrl = getImageUrl(profile.bannerUrl, DEFAULT_BANNER);
   const displayName = profile.displayName || 'Canal sin nombre';
 
   return (
     <section className="profile-header" aria-labelledby="profile-name">
       <div
-        className="profile-banner"
+        className={`profile-banner${hasBanner ? '' : ' profile-banner--default'}`}
         style={{ backgroundImage: `url("${bannerUrl}")` }}
         role="img"
         aria-label={`Banner del canal de ${displayName}`}
       />
 
-      <div className="profile-avatar-wrapper">
-        {profile.avatarUrl ? (
-          <img
-            className="profile-avatar"
-            src={getImageUrl(profile.avatarUrl, '/protube-imago-removebg-preview.png')}
-            alt={`Foto de perfil de ${displayName}`}
-            onError={(event) => {
-              event.currentTarget.src = '/protube-imago-removebg-preview.png';
-            }}
-          />
-        ) : (
-          <span className="profile-avatar-initials" aria-hidden="true">
-            {getInitials(profile.displayName)}
-          </span>
-        )}
+      <div className="profile-header-content">
+        <div className="profile-avatar-wrapper">
+          {profile.avatarUrl ? (
+            <img
+              className="profile-avatar"
+              src={getImageUrl(profile.avatarUrl, '/protube-imago-removebg-preview.png')}
+              alt={`Foto de perfil de ${displayName}`}
+              onError={(event) => {
+                event.currentTarget.src = '/protube-imago-removebg-preview.png';
+              }}
+            />
+          ) : (
+            <span className="profile-avatar-initials" aria-hidden="true">
+              {getInitials(profile.displayName, profile.username)}
+            </span>
+          )}
+        </div>
 
         <div className="profile-main-info">
           <div className="profile-title-row">
@@ -83,13 +84,13 @@ function ProfileHeader({ profile, isOwner, onEdit }: ProfileHeaderProps) {
               <h1 id="profile-name">{displayName}</h1>
               <p className="profile-username">@{profile.username}</p>
             </div>
-
-            {isOwner && onEdit && (
-              <button type="button" className="profile-edit-button" onClick={onEdit}>
-                Editar perfil
-              </button>
-            )}
           </div>
+
+          {isOwner && onEdit && (
+            <button type="button" className="profile-edit-button" onClick={onEdit}>
+              Editar perfil
+            </button>
+          )}
 
           <p className="profile-biography">{profile.biography || 'Este canal todavía no tiene una biografía.'}</p>
 

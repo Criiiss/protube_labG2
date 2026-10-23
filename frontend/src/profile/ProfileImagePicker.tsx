@@ -58,7 +58,7 @@ function ProfileImagePicker({
   };
 
   return (
-    <div className={`profile-image-picker ${aspectRatio}`}>
+    <div className={`profile-image-picker profile-image-picker--${aspectRatio}`}>
       <span className="profile-image-picker-label">{label}</span>
 
       <div className="profile-image-preview">
