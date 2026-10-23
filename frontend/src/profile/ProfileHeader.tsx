@@ -61,14 +61,21 @@ function ProfileHeader({ profile, isOwner, onEdit }: ProfileHeaderProps) {
         aria-label={`Banner del canal de ${displayName}`}
       />
 
-      <div className="profile-header-content">
-        <div className="profile-avatar-wrapper">
-          {!profile.avatarUrl && (
-            <span className="profile-avatar-initials" aria-hidden="true">
-              {getInitials(profile.displayName)}
-            </span>
-          )}
-        </div>
+      <div className="profile-avatar-wrapper">
+        {profile.avatarUrl ? (
+          <img
+            className="profile-avatar"
+            src={getImageUrl(profile.avatarUrl, '/protube-imago-removebg-preview.png')}
+            alt={`Foto de perfil de ${displayName}`}
+            onError={(event) => {
+              event.currentTarget.src = '/protube-imago-removebg-preview.png';
+            }}
+          />
+        ) : (
+          <span className="profile-avatar-initials" aria-hidden="true">
+            {getInitials(profile.displayName)}
+          </span>
+        )}
 
         <div className="profile-main-info">
           <div className="profile-title-row">

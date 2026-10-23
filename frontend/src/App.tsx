@@ -123,7 +123,7 @@ function App() {
   let content: React.ReactNode;
   if (isAuthPage) content = <AuthPage key={authMode} mode={authMode} onLogin={session.setUser} />;
   else if (privatePage && session.loading) content = <p role="status">Comprobando tu sesión…</p>;
-  else if (privatePage && !session.user)
+  else if (privatePage && !session.user && import.meta.env.VITE_PROFILE_DEMO !== 'true')
     content = (
       <div className="empty-state">
         <h1>Este espacio es para ti.</h1>
@@ -133,8 +133,17 @@ function App() {
         </a>
       </div>
     );
-  else if ((route === '/profile' || route === '/settings') && session.user)
-    content = <ProfilePage key={session.user.id} userId={session.user.id} onUpdated={() => void session.refresh()} />;
+  else if (
+    (route === '/profile' || route === '/settings') &&
+    (session.user || import.meta.env.VITE_PROFILE_DEMO === 'true')
+  )
+    content = (
+      <ProfilePage
+        key={session.user?.id ?? 'demo-profile'}
+        userId={session.user?.id ?? 1}
+        onUpdated={() => void session.refresh()}
+      />
+    );
   else if (route === '/terms')
     content = (
       <section className="account-page">
