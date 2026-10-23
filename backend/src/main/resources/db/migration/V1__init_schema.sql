@@ -5,7 +5,8 @@
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
--- USUARIOS (Epic 1 Authentication + Epic 2 User profile)
+-- USUARIOS - IDENTIDAD (Epic 1 Authentication)
+-- Solo lo necesario para iniciar sesión; el perfil público va en user_profiles.
 -- auth_provider:
 --   LOCAL    -> registro con email + password
 --   GOOGLE   -> login OAuth (password_hash = NULL)
@@ -18,9 +19,6 @@ CREATE TABLE users (
     password_hash  VARCHAR(255),
     auth_provider  VARCHAR(20)  NOT NULL DEFAULT 'LOCAL',
     provider_id    VARCHAR(255),
-    display_name   VARCHAR(150),
-    avatar_url     VARCHAR(500),
-    description    TEXT,
     created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT chk_users_provider CHECK (auth_provider IN ('LOCAL', 'GOOGLE', 'IMPORTED')),
@@ -34,6 +32,26 @@ CREATE TABLE users (
 -- Login OAuth: busca por (auth_provider, provider_id) e impide duplicar la cuenta.
 -- Las filas con provider_id NULL (LOCAL/IMPORTED) no chocan entre sí.
 CREATE UNIQUE INDEX ux_users_provider ON users (auth_provider, provider_id);
+
+-- ---------------------------------------------------------------------
+-- USUARIOS - PERFIL (Epic 2 User profile). Relación 1:1 con users:
+-- user_id es a la vez PK y FK. El servicio crea el perfil junto con el usuario.
+-- *_visibility: PUBLIC = lo ve cualquiera; PRIVATE = solo el propio usuario.
+-- ---------------------------------------------------------------------
+CREATE TABLE user_profiles (
+    user_id                   BIGINT       PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+    display_name              VARCHAR(150),
+    avatar_url                VARCHAR(500),
+    banner_url                VARCHAR(500),
+    description               TEXT,
+    subscriptions_visibility  VARCHAR(20)  NOT NULL DEFAULT 'PRIVATE',
+    liked_videos_visibility   VARCHAR(20)  NOT NULL DEFAULT 'PRIVATE',
+    updated_at                TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT chk_user_profiles_subscriptions_visibility
+        CHECK (subscriptions_visibility IN ('PUBLIC', 'PRIVATE')),
+    CONSTRAINT chk_user_profiles_liked_videos_visibility
+        CHECK (liked_videos_visibility IN ('PUBLIC', 'PRIVATE'))
+);
 
 -- ---------------------------------------------------------------------
 -- VÍDEOS (Epic 3 catálogo/reproducción + Epic 4 subida/edición)
