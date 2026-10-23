@@ -7,7 +7,6 @@ interface ProfileHeaderProps {
   onEdit?: () => void;
 }
 
-const DEFAULT_AVATAR = '/protube-imago-removebg-preview.png';
 const DEFAULT_BANNER = '/protube-logo-removebg-preview.png';
 
 const getImageUrl = (imageUrl: string | null | undefined, fallback: string): string => {
@@ -50,7 +49,6 @@ const getInitials = (displayName: string | null): string => {
 };
 
 function ProfileHeader({ profile, isOwner, onEdit }: ProfileHeaderProps) {
-  const avatarUrl = getImageUrl(profile.avatarUrl, DEFAULT_AVATAR);
   const bannerUrl = getImageUrl(profile.bannerUrl, DEFAULT_BANNER);
   const displayName = profile.displayName || 'Canal sin nombre';
 
@@ -65,15 +63,6 @@ function ProfileHeader({ profile, isOwner, onEdit }: ProfileHeaderProps) {
 
       <div className="profile-header-content">
         <div className="profile-avatar-wrapper">
-          <img
-            className="profile-avatar"
-            src={avatarUrl}
-            alt={`Foto de perfil de ${displayName}`}
-            onError={(event) => {
-              event.currentTarget.src = DEFAULT_AVATAR;
-            }}
-          />
-
           {!profile.avatarUrl && (
             <span className="profile-avatar-initials" aria-hidden="true">
               {getInitials(profile.displayName)}

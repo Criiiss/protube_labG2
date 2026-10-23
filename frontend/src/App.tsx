@@ -5,9 +5,11 @@ import ProfilePage from './profile/ProfilePage';
 import { useAllVideos } from './useAllVideos';
 
 type AppView = 'videos' | 'profile';
+type ProfileMode = 'own' | 'public';
 
 function App() {
   const [view, setView] = useState<AppView>('profile');
+  const [profileMode, setProfileMode] = useState<ProfileMode>('own');
 
   return (
     <div className="App">
@@ -20,12 +22,35 @@ function App() {
           </button>
 
           <button type="button" className={view === 'profile' ? 'active' : ''} onClick={() => setView('profile')}>
-            Mi canal
+            Perfiles
           </button>
         </div>
+
+        {view === 'profile' && (
+          <div className="app-navigation-actions">
+            <button
+              type="button"
+              className={profileMode === 'own' ? 'active' : ''}
+              onClick={() => setProfileMode('own')}
+            >
+              Mi canal
+            </button>
+
+            <button
+              type="button"
+              className={profileMode === 'public' ? 'active' : ''}
+              onClick={() => setProfileMode('public')}
+            >
+              Perfil ajeno
+            </button>
+          </div>
+        )}
       </nav>
 
-      {view === 'profile' ? <ProfilePage userId={1} /> : <ContentApp />}
+      {view === 'profile' &&
+        (profileMode === 'own' ? <ProfilePage userId={1} /> : <ProfilePage username="otro_creador" />)}
+
+      {view === 'videos' && <ContentApp />}
     </div>
   );
 }
