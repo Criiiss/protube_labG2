@@ -1,85 +1,74 @@
-import { useState } from 'react';
-import ProfileEditForm from './ProfileEditForm';
-import ProfileHeader from './ProfileHeader';
-import ProfileStats from './ProfileStats';
-import { useProfile } from './useProfile';
-
-interface ProfilePageProps {
-  userId?: number;
-  username?: string;
-}
-
-function ProfilePage({ userId, username }: ProfilePageProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const { profile, isOwner, loading, saving, error, saveProfile, saveUsername, deleteAvatar, deleteBanner } =
-    useProfile({
-      userId,
-      username,
-    });
-  if (loading) {
-    return (
-      <main className="profile-page profile-state">
-        <p>Cargando perfil...</p>
-      </main>
-    );
-  }
-  if (error && !profile) {
-    return (
-      <main className="profile-page profile-state">
-        <h1>No se ha podido cargar el perfil</h1>
-        <p>{error}</p>
-      </main>
-    );
-  }
-  if (!profile) {
-    return (
-      <main className="profile-page profile-state">
-        <h1>Perfil no encontrado</h1>
-        <p>El canal que buscas no existe o no está disponible.</p>
-      </main>
-    );
-  }
-  if (isEditing && isOwner) {
-    return (
-      <main className="profile-page">
-        <ProfileEditForm
-          profile={profile}
-          saving={saving}
-          onSaveProfile={saveProfile}
-          onSaveUsername={async (newUsername) => {
-            await saveUsername({ username: newUsername });
-          }}
-          onRemoveAvatar={deleteAvatar}
-          onRemoveBanner={deleteBanner}
-          onCancel={() => setIsEditing(false)}
-        />
-      </main>
-    );
-  }
+import { useEffect, useState } from 'react';
+import { changeUsername, getMyProfile, updateProfile } from './profileApi';
+import type { MyProfile } from './types';
+export function ProfilePage({ userId, onUpdated }: { userId: number; onUpdated: () => void }) {
+  const [profile, setProfile] = useState<MyProfile | null>(null);
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    getMyProfile(userId)
+      .then((data) => {
+        if (alive) setProfile(data);
+      })
+      .catch(() => {
+        if (alive) setMessage('No se pudo cargar tu perfil. Comprueba la conexión y tu sesión.');
+      });
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
   return (
-    <main className="profile-page">
-      <ProfileHeader profile={profile} isOwner={isOwner} onEdit={() => setIsEditing(true)} />
-      <ProfileStats
-        stats={{
-          subscriptionsCount: 0,
-          videosCount: 0,
-        }}
-      />
-      <section className="profile-content">
-        <div className="profile-content-heading">
-          <p className="profile-eyebrow">Contenido del canal</p>
-          <h2>Vídeos</h2>
-        </div>
-        <div className="profile-empty-content">
-          <span className="profile-empty-icon" aria-hidden="true">
-            ▶
-          </span>
-          <h3>Este canal todavía no tiene vídeos</h3>
-          <p>Cuando se publiquen vídeos, aparecerán aquí para que otros usuarios puedan descubrirlos.</p>
-        </div>
-      </section>
-    </main>
+    <section className="account-page">
+      <p className="eyebrow">TU ESPACIO</p>
+      <h1>Tu perfil.</h1>
+      {message && (
+        <p role="status" className="form-message">
+          {message}
+        </p>
+      )}
+      {profile && (
+        <form
+          className="auth-card"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setBusy(true);
+            setMessage('');
+            try {
+              const current = await getMyProfile(userId);
+              if (current.username !== profile.username) await changeUsername(userId, { username: profile.username });
+              const updated = await updateProfile(userId, {
+                displayName: profile.displayName || '',
+                biography: profile.biography,
+                avatarUrl: profile.avatarUrl,
+                bannerUrl: profile.bannerUrl,
+              });
+              setProfile(updated);
+              setMessage('Perfil actualizado.');
+              onUpdated();
+            } catch (error) {
+              setMessage(error instanceof Error ? error.message : 'No se pudo guardar el perfil.');
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {(['displayName', 'username', 'biography'] as const).map((key, index) => (
+            <label className="form-field" key={key}>
+              <span>{['Nombre', 'Nombre de usuario', 'Biografía'][index]}</span>
+              <input
+                required={key !== 'biography'}
+                maxLength={key === 'biography' ? 250 : key === 'username' ? 30 : 50}
+                value={profile[key] || ''}
+                onChange={(e) => setProfile({ ...profile, [key]: e.target.value })}
+              />
+            </label>
+          ))}
+          <button className="primary-button" disabled={busy}>
+            {busy ? 'Guardando…' : 'Guardar cambios'}
+          </button>
+        </form>
+      )}
+    </section>
   );
 }
-
-export default ProfilePage;
