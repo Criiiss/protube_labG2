@@ -1,6 +1,5 @@
 import { getEnv } from '../utils/Env';
 import type { PublicProfile } from './types';
-import { JSX } from 'react';
 
 interface ProfileHeaderProps {
   profile: PublicProfile;
@@ -50,7 +49,7 @@ const getInitials = (displayName: string | null): string => {
     .toUpperCase();
 };
 
-function ProfileHeader({ profile, isOwner, onEdit }: ProfileHeaderProps): JSX.Element {
+function ProfileHeader({ profile, isOwner, onEdit }: ProfileHeaderProps) {
   const avatarUrl = getImageUrl(profile.avatarUrl, DEFAULT_AVATAR);
   const bannerUrl = getImageUrl(profile.bannerUrl, DEFAULT_BANNER);
   const displayName = profile.displayName || 'Canal sin nombre';
