@@ -7,19 +7,6 @@ const request = async <T>(url: string, options?: RequestInit): Promise<T> => {
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      'X-Protube-Request': '1',
-      ...options?.headers,
-    },
-    ...options,
-  });
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `No se pudo completar la solicitud (${response.status}).`);
-  }
-  return response.json() as Promise<T>;
-  const response = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
       ...options?.headers,
     },
     ...options,
@@ -31,21 +18,6 @@ const request = async <T>(url: string, options?: RequestInit): Promise<T> => {
   return response.json() as Promise<T>;
 };
 
-export const getMyProfile = (userId: number): Promise<MyProfile> =>
-  request<MyProfile>(getProfileUrl(`/me?userId=${userId}`));
-export const getPublicProfile = (username: string): Promise<PublicProfile> =>
-  request<PublicProfile>(getProfileUrl(`/${encodeURIComponent(username)}`));
-export const updateProfile = (userId: number, profile: UpdateProfileRequest): Promise<MyProfile> =>
-  request<MyProfile>(getProfileUrl(`/me?userId=${userId}`), { method: 'PATCH', body: JSON.stringify(profile) });
-export const changeUsername = (userId: number, username: ChangeUsernameRequest): Promise<MyProfile> =>
-  request<MyProfile>(getProfileUrl(`/me/username?userId=${userId}`), {
-    method: 'PATCH',
-    body: JSON.stringify(username),
-  });
-export const removeAvatar = (userId: number): Promise<MyProfile> =>
-  request<MyProfile>(getProfileUrl(`/me/avatar?userId=${userId}`), { method: 'DELETE' });
-export const removeBanner = (userId: number): Promise<MyProfile> =>
-  request<MyProfile>(getProfileUrl(`/me/banner?userId=${userId}`), { method: 'DELETE' });
 const DEMO_PROFILE: MyProfile = {
   userId: 1,
   username: 'protube_creator',

@@ -1,25 +1,23 @@
 import { useEffect, useState } from 'react';
 import './App.css';
 import './features.css';
+import './profile/profile.css';
+
 import { Header } from './components/home/Header';
 import { Sidebar } from './components/home/Sidebar';
 import { CategoryBar } from './components/home/CategoryBar';
 import { VideoCard } from './components/home/VideoCard';
 import type { VideoAction } from './components/home/VideoCard';
 import { VideoCarousel } from './components/home/VideoCarousel';
+
 import { categories, demoVideos } from './data/home';
 import type { Video } from './data/home';
+
 import { useSession } from './auth/useSession';
 import { AuthPage } from './auth/AuthPage';
-import { ProfilePage } from './profile/ProfilePage';
 import { useLibrary } from './home/useLibrary';
 import { useCatalog } from './home/useCatalog';
-import './profile/profile.css';
-import ProfilePage from './profile/ProfilePage';
-import { useAllVideos } from './useAllVideos';
-
-type AppView = 'videos' | 'profile';
-type ProfileMode = 'own' | 'public';
+import { ProfilePage } from './profile/ProfilePage';
 
 function App() {
   const [expanded, setExpanded] = useState(false);
@@ -112,58 +110,17 @@ function App() {
             .map(([key]) => key)}
         />
       ))}
-  const [view, setView] = useState<AppView>('profile');
-  const [profileMode, setProfileMode] = useState<ProfileMode>('own');
-
-  return (
-    <div className="App">
-      <nav className="app-navigation" aria-label="Navegación principal">
-        <img src="/protube-logo-removebg-preview.png" className="app-navigation-logo" alt="ProTube" />
-
-        <div className="app-navigation-actions">
-          <button type="button" className={view === 'videos' ? 'active' : ''} onClick={() => setView('videos')}>
-            Vídeos
-          </button>
-
-          <button type="button" className={view === 'profile' ? 'active' : ''} onClick={() => setView('profile')}>
-            Perfiles
-          </button>
-        </div>
-
-        {view === 'profile' && (
-          <div className="app-navigation-actions">
-            <button
-              type="button"
-              className={profileMode === 'own' ? 'active' : ''}
-              onClick={() => setProfileMode('own')}
-            >
-              Mi canal
-            </button>
-
-            <button
-              type="button"
-              className={profileMode === 'public' ? 'active' : ''}
-              onClick={() => setProfileMode('public')}
-            >
-              Perfil ajeno
-            </button>
-          </div>
-        )}
-      </nav>
-
-      {view === 'profile' &&
-        (profileMode === 'own' ? <ProfilePage userId={1} /> : <ProfilePage username="otro_creador" />)}
-
-      {view === 'videos' && <ContentApp />}
     </div>
   );
+
   const authMode = route.slice(1);
+
   const isAuthPage = ['login', 'register', 'forgot', 'reset', 'verify', 'resend', 'google-register'].includes(authMode);
   const privatePage = ['/profile', '/settings', '/library', '/later', '/liked', '/history', '/subscriptions'].includes(
     route
   );
-  const showListing = route !== '/' || category !== 'all' || !!query;
-  let content;
+  const showListing = route !== '/' || category !== 'all' || Boolean(query);
+  let content: React.ReactNode;
   if (isAuthPage) content = <AuthPage key={authMode} mode={authMode} onLogin={session.setUser} />;
   else if (privatePage && session.loading) content = <p role="status">Comprobando tu sesión…</p>;
   else if (privatePage && !session.user)
