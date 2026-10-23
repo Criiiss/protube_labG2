@@ -34,7 +34,7 @@ export interface ChangeUsernameRequest {
 }
 //todo: videocount subcount y subscriptions hay que implementarlo mas tarde, queda prep
 export interface ProfileStats {
-  videosCount: number;
-  subscribersCount: number;
   subscriptionsCount: number;
+  videosCount: number;
+  //subscribersCount: number;
 }

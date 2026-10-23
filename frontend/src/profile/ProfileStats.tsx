@@ -10,7 +10,7 @@ function ProfileStats({ stats }: ProfileStatsProps) {
   return (
     <section className="profile-stats" aria-label="Estadísticas del canal">
       <div className="profile-stat">
-        <strong>{formatCount(stats.subscribersCount)}</strong>
+        <strong>{formatCount(stats.subscriptionsCount)}</strong>
         <span>suscriptores</span>
       </div>
       <div className="profile-stat">

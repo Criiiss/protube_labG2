@@ -1,5 +1,7 @@
 import './App.css';
 import { useAllVideos } from './useAllVideos';
+import ProfilePage from './profile/ProfilePage';
+import './profile/profile.css';
 
 function App() {
   return (
