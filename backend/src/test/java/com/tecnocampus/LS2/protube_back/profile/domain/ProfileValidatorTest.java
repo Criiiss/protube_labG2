@@ -2,8 +2,7 @@ package com.tecnocampus.LS2.protube_back.profile.domain;
 
 import com.tecnocampus.LS2.protube_back.profile.domain.exception.InvalidUsernameException;
 import com.tecnocampus.LS2.protube_back.profile.domain.service.ProfileValidator;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class ProfileValidatorTest {
