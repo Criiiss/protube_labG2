@@ -35,6 +35,22 @@ public class ProfileValidatorTest {
         assertThrows(InvalidUsernameException.class,() -> validator.normalizeUsername("this_username_is_too_long"));
     }
 
+    @Test
+    public void rejectsEmptyUsername() {
+        assertThrows(InvalidUsernameException.class,() -> validator.normalizeUsername(""));
+    }
+
+    @Test
+    public void acceptsUsernameWithMinimumLength() {
+        assertEquals("abc", validator.normalizeUsername("abc"));
+    }
+
+    @Test
+    public void acceptsUsernameWithMaximumLength() {
+        String username = "a".repeat(20);
+        assertEquals(username, validator.normalizeUsername(username));
+    }
+
     // Test method validateDisplayName
     @Test
     public void validatesDisplayName() {
@@ -44,6 +60,22 @@ public class ProfileValidatorTest {
     @Test
     public void rejectsBlankDisplayName() {
         assertThrows(IllegalArgumentException.class,() -> validator.validateDisplayName(" "));
+    }
+    @Test
+    public void rejectsNullDisplayName() {
+        assertThrows(IllegalArgumentException.class,() -> validator.validateDisplayName(null));
+    }
+
+    @Test
+    public void rejectsDisplayNameOverMaximumLength() {
+        String displayName = "a".repeat(51);
+        assertThrows(IllegalArgumentException.class,() -> validator.validateDisplayName(displayName));
+    }
+
+    @Test
+    public void acceptsDisplayNameWithMaximumLength() {
+        String displayName = "a".repeat(50);
+        assertEquals(displayName, validator.validateDisplayName(displayName));
     }
 
     //Test method validateBiography
@@ -57,6 +89,18 @@ public class ProfileValidatorTest {
         String biography = "a".repeat(251);
         assertThrows(IllegalArgumentException.class,() -> validator.validateBiography(biography));
     }
+
+    @Test
+    public void trimsBiography() {
+        assertEquals("My biography",validator.validateBiography("  My biography  "));
+    }
+
+    @Test
+    public void acceptsBiographyWithMaximumLength() {
+        String biography = "a".repeat(250);
+        assertEquals(biography, validator.validateBiography(biography));
+    }
+
 
 
 }

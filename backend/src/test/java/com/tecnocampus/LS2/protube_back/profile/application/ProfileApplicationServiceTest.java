@@ -124,4 +124,20 @@ public class ProfileApplicationServiceTest {
         verify(profileRepository).save(profile);
     }
 
+    @Test
+    public void throwsWhenPublicProfileDoesNotExist() {
+        when(profileValidator.normalizeUsername("unknown_user")).thenReturn("unknown_user");
+        when(profileRepository.findByUsername("unknown_user")).thenReturn(Optional.empty());
+        ProfileNotFoundException exception = assertThrows(ProfileNotFoundException.class,() -> service.getPublicProfile("unknown_user"));
+        assertEquals("Profile for user unknown_user not found",exception.getMessage());
+    }
+
+    @Test
+    public void throwsWhenUpdatingProfileAndProfileDoesNotExist() {
+        UpdateProfileCommand command = new UpdateProfileCommand("New name","New biography","/new-avatar.png", "/new-banner.png");
+        when(profileRepository.findById((long) 1D)).thenReturn(Optional.empty());
+        ProfileNotFoundException exception = assertThrows(ProfileNotFoundException.class,() -> service.updateProfile((long) 1D, command));
+        assertEquals("Profile for user with id 1 not found",exception.getMessage());
+    }
+
 }

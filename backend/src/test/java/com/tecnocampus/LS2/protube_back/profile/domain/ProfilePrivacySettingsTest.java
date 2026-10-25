@@ -46,4 +46,14 @@ public class ProfilePrivacySettingsTest {
         settings.hideLikedVideos();
         assertFalse(settings.isLikedVideosVisible());
     }
+    @Test
+    void updatesBothPrivacySettings() {
+        ProfilePrivacySettings settings = ProfilePrivacySettings.defaultSettings();
+        settings.updatePrivacySettings(PrivacyVisibility.PUBLIC,PrivacyVisibility.PUBLIC);
+        assertEquals(PrivacyVisibility.PUBLIC,settings.getSubscriptionsVisibility());
+        assertEquals(PrivacyVisibility.PUBLIC, settings.getLikedVideosVisibility());
+        assertTrue(settings.isSubscriptionsVisible());
+        assertTrue(settings.isLikedVideosVisible());
+    }
+
 }

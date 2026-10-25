@@ -80,6 +80,22 @@ public class UserProfileTest {
         profile.updatePrivacySettings(settings);
         assertTrue(profile.getPrivacySettings().isSubscriptionsVisible());
     }
+    @Test
+    void rejectsNullCreatedAt() {
+        assertThrows(IllegalArgumentException.class, () -> new UserProfile((long) 1D," Maria_23 ","Maria",null, null, null, null,null) );
+    }
+
+    @Test
+    void usesDefaultPrivacySettingsWhenSettingsAreNull() {
+        UserProfile profile = new UserProfile((long) 1D," Maria_23 ","Maria",null, null, null, null,CREATED_AT);
+        assertEquals(ProfilePrivacySettings.defaultSettings().getSubscriptionsVisibility(), profile.getPrivacySettings().getSubscriptionsVisibility());
+        assertEquals(ProfilePrivacySettings.defaultSettings().getLikedVideosVisibility(),profile.getPrivacySettings().getLikedVideosVisibility());
+    }
+    @Test
+    void rejectsNullUserId() {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> new UserProfile(null, "maria_23", "Maria", null, null, null, null, CREATED_AT));
+        assertEquals("User id cannot be null", exception.getMessage());
+    }
 
 
 
