@@ -11,6 +11,7 @@ export function PublicProfilePage({ username }: PublicProfilePageProps) {
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'videos'>('videos');
 
   useEffect(() => {
     let active = true;
@@ -55,17 +56,29 @@ export function PublicProfilePage({ username }: PublicProfilePageProps) {
   return (
     <section className="profile-page">
       <ProfileHeader profile={profile} isOwner={false} />
+      <section className="profile-tabs" aria-label="Secciones del perfil">
+        <button
+          type="button"
+          className="profile-tab profile-tab--active"
+          aria-selected={activeTab === 'videos'}
+          onClick={() => setActiveTab('videos')}
+        >
+          Vídeos publicados
+        </button>
+      </section>
       <section className="profile-content">
-        <div className="profile-content-heading">
-          <p className="profile-eyebrow">Contenido del canal</p>
-          <h2>Vídeos</h2>
+        <div className="profile-video-tabs" role="tablist" aria-label="Vídeos del canal">
+          <button type="button" role="tab" aria-selected="true" className="profile-video-tab profile-video-tab--active">
+            Publicados
+          </button>
         </div>
+
         <div className="profile-empty-content">
           <span className="profile-empty-icon" aria-hidden="true">
             ▶
           </span>
-          <h3>Este canal todavía no tiene vídeos</h3>
-          <p>Cuando publique vídeos, aparecerán aquí.</p>
+          <h3>Todavía no hay vídeos publicados</h3>
+          <p>Los vídeos publicados por este usuario aparecerán aquí.</p>
         </div>
       </section>
     </section>
