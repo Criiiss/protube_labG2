@@ -1,6 +1,11 @@
 import { getEnv } from '../utils/Env';
-import type { ChangeUsernameRequest, MyProfile, PublicProfile, UpdateProfileRequest } from './types';
-
+import type {
+  ChangeUsernameRequest,
+  MyProfile,
+  PublicProfile,
+  UpdatePrivacyRequest,
+  UpdateProfileRequest,
+} from './types';
 const DEMO_PROFILE_KEY = 'protube-demo-profile';
 
 const DEFAULT_DEMO_PROFILE: MyProfile = {
@@ -48,19 +53,17 @@ const getProfileUrl = (path: string): string => `${getEnv().API_BASE_URL}/profil
 
 const request = async <T>(url: string, options?: RequestInit): Promise<T> => {
   const response = await fetch(url, {
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      'X-Protube-Request': '1',
       ...options?.headers,
     },
     ...options,
   });
-
-  if (!response.ok) {
-    const errorMessage = await response.text();
-    throw new Error(errorMessage || `Request failed with status ${response.status}`);
-  }
-
-  return response.json() as Promise<T>;
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.message || 'No se pudo completar la solicitud.');
+  return data as T;
 };
 
 export const getMyProfile = (userId: number): Promise<MyProfile> => {
@@ -148,5 +151,20 @@ export const removeBanner = (userId: number): Promise<MyProfile> => {
 
   return request<MyProfile>(getProfileUrl(`/me/banner?userId=${userId}`), {
     method: 'DELETE',
+  });
+};
+
+export const updatePrivacy = (userId: number, privacy: UpdatePrivacyRequest): Promise<MyProfile> => {
+  if (isDemoMode()) {
+    const updatedProfile = {
+      ...getDemoProfile(),
+      ...privacy,
+      userId,
+    };
+    return Promise.resolve(saveDemoProfile(updatedProfile));
+  }
+  return request<MyProfile>(getProfileUrl(`/me/privacy?userId=${userId}`), {
+    method: 'PATCH',
+    body: JSON.stringify(privacy),
   });
 };

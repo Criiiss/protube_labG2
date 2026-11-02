@@ -433,6 +433,87 @@
   accent-color: #369cff;
 }
 
+/* ============ Privacidad ============ */
+.profile-privacy-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid #ffffff0d;
+  border-radius: 12px;
+  background: #111820;
+}
+
+.profile-privacy-settings h3 {
+  margin: 0;
+  color: #f1f3f7;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.profile-privacy-settings > p {
+  margin: -10px 0 0;
+  color: #8993a4;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.profile-privacy-settings .profile-form-field {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 16px;
+  border: 1px solid #ffffff0d;
+  border-radius: 10px;
+  background: #161b24;
+}
+
+.profile-privacy-settings .profile-form-field > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-form-field select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 160px;
+  min-height: 42px;
+  padding: 8px 38px 8px 14px;
+  border: 1px solid #364052;
+  border-radius: 8px;
+  color: #f1f3f7;
+  background-color: #0f141d;
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  appearance: none;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.profile-form-field select:hover {
+  border-color: #4a5870;
+}
+
+.profile-form-field select:focus {
+  border-color: #369cff;
+  box-shadow: 0 0 0 3px #369cff24;
+}
+
+.profile-form-field select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.profile-form-field select option {
+  color: #f1f3f7;
+  background: #161b24;
+}
+
 .profile-edit-form-actions {
   display: flex;
   justify-content: flex-end;
@@ -491,4 +572,19 @@
   .profile-edit-form-header {
     flex-direction: column;
   }
+
+  .profile-privacy-settings {
+    padding: 18px;
+  }
+
+  .profile-privacy-settings .profile-form-field {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .profile-form-field select {
+    width: 100%;
+  }
+
 }

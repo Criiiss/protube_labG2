@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
-import type { PublicProfile, UpdateProfileRequest } from './types';
-import ProfileImagePicker from './ProfileImagePicker';
+import type { PrivacyVisibility, PublicProfile, UpdatePrivacyRequest, UpdateProfileRequest } from './types';
 import type { FormEvent } from 'react';
+import ProfileImagePicker from './ProfileImagePicker.tsx';
 
 interface ProfileEditFormProps {
-  profile: PublicProfile;
+  profile: PublicProfile & {
+    subscriptionsVisibility: PrivacyVisibility;
+    likedVideosVisibility: PrivacyVisibility;
+  };
   saving?: boolean;
   onSaveProfile: (data: UpdateProfileRequest) => Promise<void>;
   onSaveUsername: (username: string) => Promise<void>;
+  onSavePrivacy: (data: UpdatePrivacyRequest) => Promise<void>;
   onRemoveAvatar: () => Promise<void>;
   onRemoveBanner: () => Promise<void>;
   onCancel: () => void;
@@ -23,6 +27,7 @@ function ProfileEditForm({
   saving = false,
   onSaveProfile,
   onSaveUsername,
+  onSavePrivacy,
   onRemoveAvatar,
   onRemoveBanner,
   onCancel,
@@ -33,6 +38,10 @@ function ProfileEditForm({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatarUrl);
   const [bannerUrl, setBannerUrl] = useState<string | null>(profile.bannerUrl);
   const [error, setError] = useState<string | null>(null);
+  const [subscriptionsVisibility, setSubscriptionsVisibility] = useState<PrivacyVisibility>(
+    profile.subscriptionsVisibility
+  );
+  const [likedVideosVisibility, setLikedVideosVisibility] = useState<PrivacyVisibility>(profile.likedVideosVisibility);
 
   useEffect(() => {
     setDisplayName(profile.displayName ?? '');
@@ -40,6 +49,8 @@ function ProfileEditForm({
     setBiography(profile.biography ?? '');
     setAvatarUrl(profile.avatarUrl);
     setBannerUrl(profile.bannerUrl);
+    setSubscriptionsVisibility(profile.subscriptionsVisibility);
+    setLikedVideosVisibility(profile.likedVideosVisibility);
   }, [profile]);
 
   const validateForm = (): string | null => {
@@ -61,7 +72,6 @@ function ProfileEditForm({
     event.preventDefault();
     setError(null);
     const validationError = validateForm();
-
     if (validationError) {
       setError(validationError);
       return;
@@ -74,8 +84,11 @@ function ProfileEditForm({
         avatarUrl,
         bannerUrl,
       };
-
       await onSaveProfile(profileData);
+      await onSavePrivacy({
+        subscriptionsVisibility,
+        likedVideosVisibility,
+      });
       if (normalizedUsername !== profile.username) await onSaveUsername(normalizedUsername);
       onCancel();
     } catch (saveError) {
@@ -180,6 +193,36 @@ function ProfileEditForm({
           }}
         />
       </div>
+      <section className="profile-privacy-settings">
+        <div>
+          <p className="profile-eyebrow">Privacidad</p>
+          <h3>Controla qué información puede ver la comunidad</h3>
+        </div>
+        <label className="profile-form-field">
+          <span>Mis suscripciones</span>
+          <select
+            value={subscriptionsVisibility}
+            disabled={saving}
+            onChange={(event) => setSubscriptionsVisibility(event.target.value as PrivacyVisibility)}
+          >
+            <option value="PUBLIC">Públicas</option>
+            <option value="PRIVATE">Privadas</option>
+          </select>
+          <small>Decide si otros usuarios pueden ver tus suscripciones.</small>
+        </label>
+        <label className="profile-form-field">
+          <span>Mis vídeos favoritos</span>
+          <select
+            value={likedVideosVisibility}
+            disabled={saving}
+            onChange={(event) => setLikedVideosVisibility(event.target.value as PrivacyVisibility)}
+          >
+            <option value="PUBLIC">Públicos</option>
+            <option value="PRIVATE">Privados</option>
+          </select>
+          <small>Decide si otros usuarios pueden ver tus vídeos favoritos.</small>
+        </label>
+      </section>
 
       <div className="profile-edit-form-actions">
         <button type="button" className="profile-secondary-button" onClick={onCancel} disabled={saving}>

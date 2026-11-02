@@ -14,19 +14,16 @@ export interface MyProfile extends PublicProfile {
   likedVideosVisibility: PrivacyVisibility;
 }
 
-export interface ProfileFormData {
-  displayName: string;
-  username: string;
-  biography: string;
-  avatarUrl: string | null;
-  bannerUrl: string | null;
-}
-
 export interface UpdateProfileRequest {
   displayName: string;
   biography: string | null;
   avatarUrl: string | null;
   bannerUrl: string | null;
+}
+
+export interface UpdatePrivacyRequest {
+  subscriptionsVisibility: PrivacyVisibility;
+  likedVideosVisibility: PrivacyVisibility;
 }
 
 export interface ChangeUsernameRequest {
