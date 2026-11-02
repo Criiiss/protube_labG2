@@ -18,6 +18,7 @@ import { AuthPage } from './auth/AuthPage';
 import { useLibrary } from './home/useLibrary';
 import { useCatalog } from './home/useCatalog';
 import { ProfilePage } from './profile/ProfilePage';
+import { PublicProfilePage } from './profile/PublicProfilePage';
 
 function App() {
   const [expanded, setExpanded] = useState(false);
@@ -35,6 +36,9 @@ function App() {
   const catalog = useCatalog();
   const route = location.slice(1).split('?')[0] || '/';
   const params = new URLSearchParams(location.split('?')[1]);
+  const publicProfileUsername = params.get('username');
+  const isPublicProfilePage = route === '/profile-public' && Boolean(publicProfileUsername);
+
   useEffect(() => {
     const update = () => {
       setLocation(window.location.hash || '#/');
@@ -122,7 +126,9 @@ function App() {
   const showListing = route !== '/' || category !== 'all' || Boolean(query);
   let content: React.ReactNode;
   if (isAuthPage) content = <AuthPage key={authMode} mode={authMode} onLogin={session.setUser} />;
-  else if (privatePage && session.loading) content = <p role="status">Comprobando tu sesión…</p>;
+  else if (isPublicProfilePage && publicProfileUsername) {
+    content = <PublicProfilePage username={publicProfileUsername} />;
+  } else if (privatePage && session.loading) content = <p role="status">Comprobando tu sesión…</p>;
   else if (privatePage && !session.user && import.meta.env.VITE_PROFILE_DEMO !== 'true')
     content = (
       <div className="empty-state">
@@ -325,7 +331,7 @@ function App() {
         route={route}
       />
       <div className="content-shell">
-        {!isAuthPage && !['/profile', '/settings', '/terms'].includes(route) && (
+        {!isAuthPage && !['/profile', '/settings', '/terms', '/profile-public'].includes(route) && (
           <CategoryBar
             categories={categories}
             selected={category}

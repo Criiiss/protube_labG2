@@ -30,7 +30,7 @@ export function VideoCard({
           <button className="video-title" onClick={() => onSelect(video)}>
             {video.title}
           </button>
-          <a className="video-channel" href={`#/channel?name=${encodeURIComponent(video.channel)}`}>
+          <a className="video-channel" href={`#/profile-public?username=${encodeURIComponent(video.channel)}`}>
             {video.channel}
           </a>
           <p>
