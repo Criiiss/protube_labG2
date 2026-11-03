@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { getPublicProfile } from './profileApi';
 import ProfileHeader from './ProfileHeader';
+import { ChannelVideoGrid } from '../videos/ChannelVideoGrid';
+import { useChannelVideos } from '../videos/useChannelVideos';
 import type { PublicProfile } from './types';
 
 interface PublicProfilePageProps {
@@ -11,23 +13,29 @@ export function PublicProfilePage({ username }: PublicProfilePageProps) {
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'videos'>('videos');
 
   useEffect(() => {
     let active = true;
+
     setLoading(true);
     setError(null);
     setProfile(null);
 
     getPublicProfile(username)
       .then((loadedProfile) => {
-        if (active) setProfile(loadedProfile);
+        if (active) {
+          setProfile(loadedProfile);
+        }
       })
       .catch((requestError: unknown) => {
-        if (active) setError(requestError instanceof Error ? requestError.message : 'No se pudo cargar el perfil.');
+        if (active) {
+          setError(requestError instanceof Error ? requestError.message : 'No se pudo cargar el perfil.');
+        }
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       });
 
     return () => {
@@ -56,31 +64,55 @@ export function PublicProfilePage({ username }: PublicProfilePageProps) {
   return (
     <section className="profile-page">
       <ProfileHeader profile={profile} isOwner={false} />
+
       <section className="profile-tabs" aria-label="Secciones del perfil">
-        <button
-          type="button"
-          className="profile-tab profile-tab--active"
-          aria-selected={activeTab === 'videos'}
-          onClick={() => setActiveTab('videos')}
-        >
+        <button type="button" className="profile-tab profile-tab--active" aria-selected="true">
           Vídeos publicados
         </button>
       </section>
+
       <section className="profile-content">
+        <div className="profile-content-heading">
+          <p className="profile-eyebrow">Contenido del canal</p>
+          <h2>Vídeos publicados</h2>
+        </div>
+
         <div className="profile-video-tabs" role="tablist" aria-label="Vídeos del canal">
           <button type="button" role="tab" aria-selected="true" className="profile-video-tab profile-video-tab--active">
             Publicados
           </button>
         </div>
 
-        <div className="profile-empty-content">
-          <span className="profile-empty-icon" aria-hidden="true">
-            ▶
-          </span>
-          <h3>Todavía no hay vídeos publicados</h3>
-          <p>Los vídeos publicados por este usuario aparecerán aquí.</p>
-        </div>
+        <PublicProfileVideos userId={profile.userId} />
       </section>
     </section>
+  );
+}
+
+function PublicProfileVideos({ userId }: { userId: number }) {
+  const { videos, loading, error } = useChannelVideos(userId, 'published', false);
+
+  if (loading) {
+    return (
+      <p className="profile-state" role="status">
+        Cargando vídeos...
+      </p>
+    );
+  }
+
+  if (error) {
+    return (
+      <p className="profile-form-error" role="status">
+        {error}
+      </p>
+    );
+  }
+
+  return (
+    <ChannelVideoGrid
+      videos={videos}
+      emptyTitle="Todavía no hay vídeos publicados"
+      emptyDescription="Los vídeos públicos de este canal aparecerán aquí."
+    />
   );
 }

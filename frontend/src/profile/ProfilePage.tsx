@@ -3,12 +3,41 @@ import { changeUsername, getMyProfile, removeAvatar, removeBanner, updatePrivacy
 import ProfileEditForm from './ProfileEditForm';
 import ProfileHeader from './ProfileHeader';
 import ProfileStats from './ProfileStats';
+import { ChannelVideoGrid } from '../videos/ChannelVideoGrid';
+import { useChannelVideos } from '../videos/useChannelVideos';
+import type { VideoTab } from '../videos/channelVideosApi';
 import type { MyProfile } from './types';
 
 interface ProfilePageProps {
   userId: number;
   onUpdated: () => void;
 }
+
+const getEmptyTitle = (tab: VideoTab): string => {
+  switch (tab) {
+    case 'published':
+      return 'Todavía no hay vídeos publicados';
+    case 'scheduled':
+      return 'Todavía no hay vídeos programados';
+    case 'archived':
+      return 'Todavía no hay vídeos archivados';
+    case 'drafts':
+      return 'Todavía no hay borradores';
+  }
+};
+
+const getEmptyDescription = (tab: VideoTab): string => {
+  switch (tab) {
+    case 'published':
+      return 'Los vídeos públicos de este canal aparecerán aquí.';
+    case 'scheduled':
+      return 'Los vídeos programados solo serán visibles para ti.';
+    case 'archived':
+      return 'Los vídeos archivados solo serán visibles para ti.';
+    case 'drafts':
+      return 'Tus borradores solo serán visibles para ti.';
+  }
+};
 
 export function ProfilePage({ userId, onUpdated }: ProfilePageProps) {
   const [profile, setProfile] = useState<MyProfile | null>(null);
@@ -17,12 +46,16 @@ export function ProfilePage({ userId, onUpdated }: ProfilePageProps) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'videos' | 'analytics'>('videos');
-  const [activeVideoTab, setActiveVideoTab] = useState<'published' | 'scheduled' | 'archived' | 'drafts'>('published');
+  const [activeVideoTab, setActiveVideoTab] = useState<VideoTab>('published');
+
+  const channelVideos = useChannelVideos(userId, activeVideoTab, true);
 
   useEffect(() => {
     let active = true;
+
     setLoading(true);
     setMessage(null);
+
     getMyProfile(userId)
       .then((loadedProfile) => {
         if (active) {
@@ -82,6 +115,7 @@ export function ProfilePage({ userId, onUpdated }: ProfilePageProps) {
       setSaving(false);
     }
   };
+
   const savePrivacy = async (data: Parameters<typeof updatePrivacy>[1]) => {
     setSaving(true);
     setMessage(null);
@@ -93,6 +127,7 @@ export function ProfilePage({ userId, onUpdated }: ProfilePageProps) {
       setSaving(false);
     }
   };
+
   const saveUsername = async (username: string) => {
     setSaving(true);
     setMessage(null);
@@ -133,6 +168,9 @@ export function ProfilePage({ userId, onUpdated }: ProfilePageProps) {
     );
   }
 
+  const isLoadingVideos = channelVideos.loading;
+  const hasVideoError = Boolean(channelVideos.error);
+
   return (
     <section className="profile-page">
       <ProfileHeader profile={profile} isOwner onEdit={() => setEditing(true)} />
@@ -140,7 +178,7 @@ export function ProfilePage({ userId, onUpdated }: ProfilePageProps) {
       <ProfileStats
         stats={{
           subscriptionsCount: 0,
-          videosCount: 0,
+          videosCount: channelVideos.videos.length,
         }}
       />
 
@@ -214,23 +252,25 @@ export function ProfilePage({ userId, onUpdated }: ProfilePageProps) {
               </button>
             </div>
 
-            <div className="profile-empty-content">
-              <span className="profile-empty-icon" aria-hidden="true">
-                ▶
-              </span>
-              <h3>
-                {activeVideoTab === 'published' && 'Todavía no hay vídeos publicados'}
-                {activeVideoTab === 'scheduled' && 'Todavía no hay vídeos programados'}
-                {activeVideoTab === 'archived' && 'Todavía no hay vídeos archivados'}
-                {activeVideoTab === 'drafts' && 'Todavía no hay borradores'}
-              </h3>
-              <p>
-                {activeVideoTab === 'published' && 'Los vídeos que publiques aparecerán aquí para otros usuarios.'}
-                {activeVideoTab === 'scheduled' && 'Los vídeos programados solo serán visibles para ti.'}
-                {activeVideoTab === 'archived' && 'Los vídeos archivados solo serán visibles para ti.'}
-                {activeVideoTab === 'drafts' && 'Tus borradores solo serán visibles para ti.'}
+            {isLoadingVideos && (
+              <p className="profile-state" role="status">
+                Cargando vídeos...
               </p>
-            </div>
+            )}
+
+            {channelVideos.error && (
+              <p className="profile-form-error" role="status">
+                {channelVideos.error}
+              </p>
+            )}
+
+            {!isLoadingVideos && !hasVideoError && (
+              <ChannelVideoGrid
+                videos={channelVideos.videos}
+                emptyTitle={getEmptyTitle(activeVideoTab)}
+                emptyDescription={getEmptyDescription(activeVideoTab)}
+              />
+            )}
           </>
         ) : (
           <>
