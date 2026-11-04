@@ -11,6 +11,7 @@ export interface Video {
   duration: string;
   categoryId: string;
   thumbnail: string;
+  videoUrl?: string;
   viewCount?: number;
   createdAt?: string;
 }

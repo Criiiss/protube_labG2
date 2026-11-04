@@ -20,6 +20,7 @@ public class CatalogController {
             String duration,
             String categoryId,
             String thumbnail,
+            String videoUrl,
             long viewCount,
             String createdAt
     ) {
@@ -40,6 +41,7 @@ public class CatalogController {
                     v.view_count,
                     v.created_at,
                     v.duration_sec,
+                    v.file_name,
                     v.thumbnail_name
                 FROM videos v
                 INNER JOIN users u ON u.id = v.owner_id
@@ -50,6 +52,7 @@ public class CatalogController {
                     long durationSeconds = resultSet.getLong("duration_sec");
                     long viewCount = resultSet.getLong("view_count");
                     String thumbnailName = resultSet.getString("thumbnail_name");
+                    String fileName = resultSet.getString("file_name");
                     Timestamp createdAt = resultSet.getTimestamp("created_at");
 
                     return new Video(
@@ -61,6 +64,7 @@ public class CatalogController {
                             formatDuration(durationSeconds),
                             "all",
                             getThumbnailUrl(thumbnailName),
+                            getVideoUrl(fileName),
                             viewCount,
                             createdAt == null
                                     ? null
@@ -92,7 +96,6 @@ public class CatalogController {
     private String formatDuration(long durationSeconds) {
         long minutes = durationSeconds / 60;
         long seconds = durationSeconds % 60;
-
         return minutes + ":" + String.format("%02d", seconds);
     }
 
@@ -100,13 +103,13 @@ public class CatalogController {
         if (thumbnailName == null || thumbnailName.isBlank()) {
             return "/dog.png";
         }
-
-        if (thumbnailName.startsWith("http://")
-                || thumbnailName.startsWith("https://")
-                || thumbnailName.startsWith("/")) {
-            return thumbnailName;
-        }
-
+        if (thumbnailName.startsWith("http://")|| thumbnailName.startsWith("https://")|| thumbnailName.startsWith("/")) return thumbnailName;
         return "/media/" + thumbnailName;
+    }
+
+    private String getVideoUrl(String fileName) {
+        if (fileName == null || fileName.isBlank()) return null;
+        if (fileName.startsWith("http://")|| fileName.startsWith("https://")|| fileName.startsWith("/")) return fileName;
+        return "/media/" + fileName;
     }
 }

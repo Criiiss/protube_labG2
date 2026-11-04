@@ -24,6 +24,7 @@ public class ChannelVideoService {
                     v.view_count,
                     v.created_at,
                     v.duration_sec,
+                    v.file_name,
                     v.thumbnail_name,
                     v.status,
                     v.visibility
@@ -51,6 +52,7 @@ public class ChannelVideoService {
                     v.view_count,
                     v.created_at,
                     v.duration_sec,
+                    v.file_name,
                     v.thumbnail_name,
                     v.status,
                     v.visibility
@@ -69,6 +71,7 @@ public class ChannelVideoService {
         long viewCount = resultSet.getLong("view_count");
         String thumbnailName = resultSet.getString("thumbnail_name");
         Timestamp createdAt = resultSet.getTimestamp("created_at");
+        String fileName = resultSet.getString("file_name");
         return new ChannelVideoResponseDTO(
                 resultSet.getString("id"),
                 resultSet.getString("title"),
@@ -78,6 +81,7 @@ public class ChannelVideoService {
                 formatDuration(durationSeconds),
                 "all",
                 getThumbnailUrl(thumbnailName),
+                getVideoUrl(fileName),
                 viewCount,
                 createdAt == null
                         ? null
@@ -97,5 +101,11 @@ public class ChannelVideoService {
         if (thumbnailName == null || thumbnailName.isBlank()) return "/dog.png";
         if (thumbnailName.startsWith("http://") || thumbnailName.startsWith("https://") || thumbnailName.startsWith("/")) return thumbnailName;
         return "/media/" + thumbnailName;
+    }
+
+    private String getVideoUrl(String fileName) {
+        if (fileName == null || fileName.isBlank()) return null;
+        if (fileName.startsWith("http://")|| fileName.startsWith("https://")|| fileName.startsWith("/"))return fileName;
+        return "/media/" + fileName;
     }
 }

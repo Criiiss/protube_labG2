@@ -31,9 +31,7 @@ export function ChannelVideoGrid({
           key={video.id}
           video={video}
           onSelect={(selectedVideo) => {
-            window.location.hash =
-              `/channel?name=${encodeURIComponent(selectedVideo.channel)}` +
-              `&video=${encodeURIComponent(selectedVideo.id)}`;
+            window.location.hash = `/watch?video=${encodeURIComponent(selectedVideo.id)}`;
           }}
         />
       ))}
