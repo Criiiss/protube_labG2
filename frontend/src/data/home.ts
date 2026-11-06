@@ -6,6 +6,9 @@ export interface Video {
   id: string;
   title: string;
   channel: string;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+  description?: string | null;
   views: string;
   published: string;
   duration: string;

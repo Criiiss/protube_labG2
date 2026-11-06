@@ -46,12 +46,112 @@
     line-height: 1.6;
 }
 
-.video-player-info time,
+.video-player-channel {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px solid #ffffff0d;
+}
+
+.video-player-avatar {
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: linear-gradient(135deg, #25426d, #1c293b);
+    box-shadow: 0 0 0 1px #369cff74;
+}
+
+.video-player-avatar-fallback {
+    display: grid;
+    place-items: center;
+    color: #d6e5fa;
+    font-size: 0.85rem;
+    font-weight: 650;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    user-select: none;
+}
+
+.video-player-channel-text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.video-player-channel-text strong {
+    overflow: hidden;
+    color: #f1f3f7;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.video-player-channel-text span {
+    color: #8993a4;
+    font-size: 0.8rem;
+}
+
+a.video-player-channel {
+    color: inherit;
+    text-decoration: none;
+}
+
+a.video-player-channel:hover .video-player-channel-text strong {
+    color: #6db4ff;
+}
+
 .video-player-meta {
-    display: block;
-    margin-bottom: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-top: 16px;
     color: #8493aa;
-    font-size: 0.875rem;
+    font-size: 0.8rem;
+}
+
+.video-player-meta > * + *::before {
+    display: inline-block;
+    width: 3px;
+    height: 3px;
+    margin-right: 16px;
+    border-radius: 50%;
+    background: #8493aa;
+    opacity: 0.7;
+    vertical-align: middle;
+    content: '';
+}
+
+.video-player-description {
+    margin-top: 22px;
+    padding: 18px 20px;
+    border: 1px solid #ffffff0d;
+    border-radius: 10px;
+    background: #111820;
+}
+
+.video-player-description h2 {
+    margin: 0 0 10px;
+    color: #d6e5fa;
+    font-size: 0.8rem;
+    font-weight: 650;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.video-player-description p {
+    margin: 0;
+    color: #b6c1d1;
+    font-size: 0.9rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 .video-player-unavailable {
@@ -92,5 +192,9 @@
 
     .video-player-info h1 {
         font-size: 1.3rem;
+    }
+
+    .video-player-description {
+        padding: 16px;
     }
 }

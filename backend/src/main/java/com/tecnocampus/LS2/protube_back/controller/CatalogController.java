@@ -15,6 +15,9 @@ public class CatalogController {
             String id,
             String title,
             String channel,
+            String displayName,
+            String avatarUrl,
+            String description,
             String views,
             String published,
             String duration,
@@ -38,6 +41,9 @@ public class CatalogController {
                     v.id,
                     v.title,
                     u.username,
+                    up.display_name,
+                    up.avatar_url,
+                    v.description,
                     v.view_count,
                     v.created_at,
                     v.duration_sec,
@@ -45,6 +51,7 @@ public class CatalogController {
                     v.thumbnail_name
                 FROM videos v
                 INNER JOIN users u ON u.id = v.owner_id
+                LEFT JOIN user_profiles up ON up.user_id = u.id
                 WHERE v.status = 'PUBLISHED' AND v.visibility = 'PUBLIC'
                 ORDER BY v.created_at DESC
                 """,
@@ -54,11 +61,17 @@ public class CatalogController {
                     String thumbnailName = resultSet.getString("thumbnail_name");
                     String fileName = resultSet.getString("file_name");
                     Timestamp createdAt = resultSet.getTimestamp("created_at");
+                    String displayName = resultSet.getString("display_name");
+                    String avatarUrl = resultSet.getString("avatar_url");
+                    String description = resultSet.getString("description");
 
                     return new Video(
                             resultSet.getString("id"),
                             resultSet.getString("title"),
                             resultSet.getString("username"),
+                            displayName,
+                            getAvatarUrl(avatarUrl),
+                            description,
                             viewCount + " visualizaciones",
                             "",
                             formatDuration(durationSeconds),
@@ -111,5 +124,10 @@ public class CatalogController {
         if (fileName == null || fileName.isBlank()) return null;
         if (fileName.startsWith("http://")|| fileName.startsWith("https://")|| fileName.startsWith("/")) return fileName;
         return "/media/" + fileName;
+    }
+    private String getAvatarUrl(String avatarUrl) {
+        if (avatarUrl == null || avatarUrl.isBlank()) return null;
+        if (avatarUrl.startsWith("http://")|| avatarUrl.startsWith("https://")|| avatarUrl.startsWith("data:") || avatarUrl.startsWith("/")) return avatarUrl;
+        return "/media/" + avatarUrl;
     }
 }

@@ -21,6 +21,9 @@ public class ChannelVideoService {
                     v.id,
                     v.title,
                     u.username,
+                    up.display_name,
+                    up.avatar_url,
+                    v.description,
                     v.view_count,
                     v.created_at,
                     v.duration_sec,
@@ -30,6 +33,7 @@ public class ChannelVideoService {
                     v.visibility
                 FROM videos v
                 INNER JOIN users u ON u.id = v.owner_id
+                LEFT JOIN user_profiles up ON up.user_id = u.id
                 WHERE v.owner_id = ?
                   AND v.status = 'PUBLISHED'
                   AND v.visibility = 'PUBLIC'
@@ -76,6 +80,9 @@ public class ChannelVideoService {
                 resultSet.getString("id"),
                 resultSet.getString("title"),
                 resultSet.getString("username"),
+                resultSet.getString("display_name"),
+                getAvatarUrl(resultSet.getString("avatar_url")),
+                resultSet.getString("description"),
                 viewCount + " visualizaciones",
                 "",
                 formatDuration(durationSeconds),
@@ -107,5 +114,10 @@ public class ChannelVideoService {
         if (fileName == null || fileName.isBlank()) return null;
         if (fileName.startsWith("http://")|| fileName.startsWith("https://")|| fileName.startsWith("/"))return fileName;
         return "/media/" + fileName;
+    }
+    private String getAvatarUrl(String avatarUrl) {
+        if (avatarUrl == null || avatarUrl.isBlank()) return null;
+        if (avatarUrl.startsWith("http://")|| avatarUrl.startsWith("https://")|| avatarUrl.startsWith("data:") || avatarUrl.startsWith("/")) return avatarUrl;
+        return "/media/" + avatarUrl;
     }
 }
