@@ -1,15 +1,14 @@
 package com.tecnocampus.LS2.protube_back.comments.application.service;
 
+import com.tecnocampus.LS2.protube_back.auth.AuthFailure;
 import com.tecnocampus.LS2.protube_back.comments.adapter.in.web.CommentResponseDTO;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.List;
 
 @Service
@@ -19,11 +18,14 @@ public class CommentService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public CommentResponseDTO createComment(Long videoId, Long authId, String content){
+    @Transactional
+    public CommentResponseDTO createComment(Long videoId, Long authId, String content, Long parentId){
         ensureVideoAvailable(videoId);
         String normalizedContent = content== null ? "" : content.trim();
         if (normalizedContent.isBlank()) throw new IllegalArgumentException("Comment content cannot be empty");
         if (normalizedContent.length() > 2000) throw new IllegalArgumentException("Comment content cannot exceed 2000 characters");
+        if (parentId != null) ensureParentCommentBelongsToVideo(parentId, videoId);
+
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
             PreparedStatement statement = connection.prepareStatement(
@@ -43,6 +45,8 @@ public class CommentService {
             );
             statement.setLong(1, videoId);
             statement.setLong(2, authId);
+            if (parentId == null)statement.setNull(3, Types.BIGINT);
+            else statement.setLong(3, parentId);
             statement.setString(3, normalizedContent);
             return statement;
         }, keyHolder);
@@ -91,7 +95,6 @@ public class CommentService {
                     INNER JOIN users u ON u.id = c.author_id
                     LEFT JOIN user_profiles up ON up.user_id = u.id
                     WHERE c.video_id = ?
-                      AND c.parent_id IS NULL
                     ORDER BY c.created_at DESC 
                     """,
                     (resultSet, rowNumber) -> mapComment(resultSet),
@@ -133,5 +136,25 @@ public class CommentService {
         if (avatarUrl == null || avatarUrl.isBlank()) return null;
         if (avatarUrl.startsWith("http://") || avatarUrl.startsWith("https://") || avatarUrl.startsWith("data:")) return avatarUrl;
         return "/media/" + avatarUrl;
+    }
+
+    private void ensureParentCommentBelongsToVideo(Long parentId, Long videoId) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM comments
+                WHERE id = ?
+                  AND video_id = ?
+                """,
+                Integer.class,
+                parentId,
+                videoId
+        );
+        if (count == null || count == 0) {
+            throw new AuthFailure(
+                    400,
+                    "El comentario padre no pertenece a este vídeo."
+            );
+        }
     }
 }

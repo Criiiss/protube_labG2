@@ -20,7 +20,6 @@ const demoComments: Comment[] = [
   },
 ];
 
-
 export function useComments(videoId: string) {
   const [comments, setComments] = useState<Comment[]>(() =>
     isDemoMode ? demoComments.filter((comment) => String(comment.videoId) === String(videoId)) : []
@@ -52,10 +51,9 @@ export function useComments(videoId: string) {
     void loadComments();
   }, [loadComments]);
 
-  const addComment = async (content: string) => {
+  const addComment = async (content: string, parentId: string | number | null = null) => {
     setSubmitting(true);
     setSubmitError('');
-
     try {
       if (isDemoMode) {
         const demoComment: Comment = {
@@ -66,7 +64,7 @@ export function useComments(videoId: string) {
           displayName: 'Usuario Demo',
           avatarUrl: null,
           content,
-          parentId: null,
+          parentId,
           likeCount: 0,
           createdAt: new Date().toISOString(),
         };
@@ -74,9 +72,8 @@ export function useComments(videoId: string) {
         return demoComment;
       }
 
-      const createdComment = await createComment(videoId, content);
+      const createdComment = await createComment(videoId, content, parentId);
       setComments((currentComments) => [...currentComments, createdComment]);
-
       return createdComment;
     } catch (requestError) {
       const message = requestError instanceof ApiError ? requestError.message : 'No se pudo publicar el comentario.';

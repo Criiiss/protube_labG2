@@ -25,7 +25,7 @@ public class CommentController {
     @PostMapping
     public ResponseEntity<CommentResponseDTO> createComment(@PathVariable Long videoId, @RequestBody CreateCommentRequestDTO request, HttpServletRequest servletRequest) {
         Long userId = AuthController.requireUser(servletRequest, authService);
-        CommentResponseDTO comment = commentService.createComment(videoId, userId, request.content());
+        CommentResponseDTO comment = commentService.createComment(videoId, userId, request.content(), request.parentId());
         return ResponseEntity.status(HttpStatus.CREATED).body(comment);
     }
 
