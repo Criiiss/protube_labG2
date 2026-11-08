@@ -18,8 +18,18 @@ interface CommentItemProps {
   onReply: (content: string, parentId: string | number) => Promise<void>;
   onEdit: (commentId: string | number, content: string) => Promise<Comment>;
   onDelete: (commentId: string | number) => Promise<void>;
+  onToggleLike: (commentId: string | number, liked: boolean) => Promise<Comment>;
 }
-function CommentItem({ comment, comments, user, submitting, onReply, onEdit, onDelete }: CommentItemProps) {
+function CommentItem({
+  comment,
+  comments,
+  user,
+  submitting,
+  onReply,
+  onEdit,
+  onDelete,
+  onToggleLike,
+}: CommentItemProps) {
   const [replying, setReplying] = useState(false);
   const [replyContent, setReplyContent] = useState('');
   const [editing, setEditing] = useState(false);
@@ -67,6 +77,18 @@ function CommentItem({ comment, comments, user, submitting, onReply, onEdit, onD
     const confirmed = window.confirm('¿Seguro que quieres eliminar este comentario?');
     if (!confirmed) return;
     await onDelete(comment.id);
+  }
+
+  async function handleLike() {
+    if (!user) {
+      window.location.hash = `/login?redirect=${encodeURIComponent(`/watch?video=${comment.videoId}`)}`;
+      return;
+    }
+    try {
+      await onToggleLike(comment.id, comment.likedByCurrentUser);
+    } catch (error) {
+      //mostr error
+    }
   }
 
   return (
@@ -130,6 +152,16 @@ function CommentItem({ comment, comments, user, submitting, onReply, onEdit, onD
             <div className="comment-actions">
               <button
                 type="button"
+                className={`comment-like-button${comment.likedByCurrentUser ? ' is-liked' : ''}`}
+                onClick={() => void handleLike()}
+                aria-pressed={comment.likedByCurrentUser}
+                aria-label={comment.likedByCurrentUser ? 'Quitar me gusta' : 'Dar me gusta'}
+              >
+                {comment.likedByCurrentUser ? '♥' : '♡'} {comment.likeCount}
+              </button>
+
+              <button
+                type="button"
                 className="comment-reply-button"
                 onClick={() => {
                   setReplying(!replying);
@@ -151,7 +183,6 @@ function CommentItem({ comment, comments, user, submitting, onReply, onEdit, onD
                   >
                     Editar
                   </button>
-
                   <button
                     type="button"
                     className="comment-action-button comment-action-danger"
@@ -195,6 +226,7 @@ function CommentItem({ comment, comments, user, submitting, onReply, onEdit, onD
               onReply={onReply}
               onEdit={onEdit}
               onDelete={onDelete}
+              onToggleLike={onToggleLike}
             />
           ))}
         </div>
@@ -240,7 +272,7 @@ function resolveAvatarUrl(avatarUrl: string | null): string | undefined {
 
 export function CommentsSection({ videoId, user }: CommentsSectionProps) {
   const [content, setContent] = useState('');
-  const { comments, loading, submitting, error, submitError, addComment, editComment, removeComment } =
+  const { comments, loading, submitting, error, submitError, addComment, editComment, removeComment, toggleLike } =
     useComments(videoId);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -328,6 +360,7 @@ export function CommentsSection({ videoId, user }: CommentsSectionProps) {
             onReply={handleReply}
             onEdit={editComment}
             onDelete={removeComment}
+            onToggleLike={toggleLike}
           />
         ))}
       </div>

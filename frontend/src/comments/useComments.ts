@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../auth/api';
-import { createComment, getVideoComments, deleteVideoComment, updateVideoComment } from './commentsApi';
+import {
+  createComment,
+  getVideoComments,
+  deleteVideoComment,
+  updateVideoComment,
+  likeVideoComment,
+  unlikeVideoComment,
+} from './commentsApi';
 import type { Comment } from './commentsApi';
 
 const isDemoMode = import.meta.env.VITE_PROFILE_DEMO === 'true';
@@ -16,6 +23,7 @@ const demoComments: Comment[] = [
     content: 'Este es un comentario de prueba para comprobar cómo aparece en el vídeo.',
     parentId: null,
     likeCount: 0,
+    likedByCurrentUser: false,
     createdAt: new Date().toISOString(),
   },
 ];
@@ -66,6 +74,7 @@ export function useComments(videoId: string) {
           content,
           parentId,
           likeCount: 0,
+          likedByCurrentUser: false,
           createdAt: new Date().toISOString(),
         };
         setComments((currentComments) => [...currentComments, demoComment]);
@@ -140,6 +149,34 @@ export function useComments(videoId: string) {
     );
   };
 
+  const toggleLike = async (commentId: string | number, liked: boolean): Promise<Comment> => {
+    setSubmitError('');
+    if (isDemoMode) {
+      const currentComment = comments.find((comment) => String(comment.id) === String(commentId));
+      if (!currentComment) {
+        throw new Error('El comentario no existe.');
+      }
+      const updatedComment: Comment = {
+        ...currentComment,
+        likedByCurrentUser: !liked,
+        likeCount: Math.max(0, currentComment.likeCount + (liked ? -1 : 1)),
+      };
+
+      setComments((currentComments) =>
+        currentComments.map((comment) => (String(comment.id) === String(commentId) ? updatedComment : comment))
+      );
+
+      return updatedComment;
+    }
+    const updatedComment = liked
+      ? await unlikeVideoComment(videoId, commentId)
+      : await likeVideoComment(videoId, commentId);
+    setComments((currentComments) =>
+      currentComments.map((comment) => (String(comment.id) === String(commentId) ? updatedComment : comment))
+    );
+    return updatedComment;
+  };
+
   return {
     comments,
     loading,
@@ -149,6 +186,7 @@ export function useComments(videoId: string) {
     addComment,
     editComment,
     removeComment,
+    toggleLike,
     reload: loadComments,
   };
 }

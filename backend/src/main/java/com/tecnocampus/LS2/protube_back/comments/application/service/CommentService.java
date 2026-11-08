@@ -76,7 +76,7 @@ public class CommentService {
     }
 
 
-    public List<CommentResponseDTO> getComments(Long videoId) {
+    public List<CommentResponseDTO> getComments(Long videoId, Long currentUserId) {
         ensureVideoAvailable(videoId);
         return jdbcTemplate.query(
             """
@@ -90,7 +90,18 @@ public class CommentService {
                         c.content,
                         c.parent_id,
                         c.like_count,
-                        c.created_at
+                        c.created_at,
+                        CASE
+                            WHEN ? IS NOT NULL
+                            AND EXISTS (
+                                SELECT 1
+                                FROM comment_likes cl
+                                WHERE cl.comment_id = c.id
+                                    AND cl.user_id = ?
+                            )
+                            THEN TRUE
+                            ELSE FALSE
+                        END AS liked_by_current_user
                     FROM comments c
                     INNER JOIN users u ON u.id = c.author_id
                     LEFT JOIN user_profiles up ON up.user_id = u.id
@@ -98,6 +109,8 @@ public class CommentService {
                     ORDER BY c.created_at DESC 
                     """,
                     (resultSet, rowNumber) -> mapComment(resultSet),
+                    currentUserId,
+                    currentUserId,
                     videoId
         );
     }
@@ -123,6 +136,7 @@ public class CommentService {
                 resultSet.getString("content"),
                 getNullableLong(resultSet, "parent_id"),
                 resultSet.getLong("like_count"),
+                resultSet.getBoolean("liked_by_current_user"),
                 resultSet.getTimestamp("created_at").toInstant()
         );
     }
@@ -204,7 +218,7 @@ public class CommentService {
                 authorId
         );
 
-        return getCommentById(commentId);
+        return getCommentById(commentId, authorId);
     }
 
     @Transactional
@@ -236,11 +250,11 @@ public class CommentService {
                 videoId,
                 authorId
         );
-        if (deleted == 0) throw new AuthFailure(404, "El comentario no existe.");
+        if (deleted == 0) throw new AuthFailure(404, "comment not found");
 
     }
 
-    private CommentResponseDTO getCommentById(Long commentId) {
+    private CommentResponseDTO getCommentById(Long commentId, Long currentUserId) {
         return jdbcTemplate.queryForObject(
                 """
                 SELECT
@@ -253,14 +267,110 @@ public class CommentService {
                     c.content,
                     c.parent_id,
                     c.like_count,
-                    c.created_at
+                    c.created_at,
+                    CASE
+                        WHEN ? IS NOT NULL
+                        AND EXISTS (
+                            SELECT 1
+                            FROM comment_likes cl
+                            WHERE cl.comment_id = c.id
+                                AND cl.user_id = ?
+                        )
+                        THEN TRUE
+                        ELSE FALSE
+                    END AS liked_by_current_user
                 FROM comments c
                 INNER JOIN users u ON u.id = c.author_id
                 LEFT JOIN user_profiles up ON up.user_id = u.id
                 WHERE c.id = ?
                 """,
                 (resultSet, rowNumber) -> mapComment(resultSet),
+                currentUserId,
+                currentUserId,
                 commentId
         );
+    }
+
+    @Transactional
+    public CommentResponseDTO likeComment( Long videoId,Long commentId,Long userId) {
+        ensureCommentBelongsToVideo(commentId, videoId);
+        int inserted = jdbcTemplate.update(
+                """
+                INSERT INTO comment_likes (
+                    user_id,
+                    comment_id,
+                    created_at
+                )
+                SELECT ?, ?, CURRENT_TIMESTAMP
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM comment_likes
+                    WHERE user_id = ?
+                      AND comment_id = ?
+                )
+                """,
+                userId,
+                commentId,
+                userId,
+                commentId
+        );
+
+        if (inserted > 0) {
+            jdbcTemplate.update(
+                    """
+                    UPDATE comments
+                    SET like_count = like_count + 1
+                    WHERE id = ?
+                    """,
+                    commentId
+            );
+        }
+
+        return getCommentById(commentId, userId);
+    }
+
+    @Transactional
+    public CommentResponseDTO unlikeComment(Long videoId,Long commentId, Long userId) {
+        ensureCommentBelongsToVideo(commentId, videoId);
+
+        int deleted = jdbcTemplate.update(
+                """
+                DELETE FROM comment_likes
+                WHERE user_id = ?
+                  AND comment_id = ?
+                """,
+                userId,
+                commentId
+        );
+
+        if (deleted > 0) {
+            jdbcTemplate.update(
+                    """
+                    UPDATE comments
+                    SET like_count = CASE
+                        WHEN like_count > 0 THEN like_count - 1
+                        ELSE 0
+                    END
+                    WHERE id = ?
+                    """,
+                    commentId
+            );
+        }
+        return getCommentById(commentId, userId);
+    }
+
+    private void ensureCommentBelongsToVideo(Long commentId, Long videoId) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM comments
+                WHERE id = ?
+                  AND video_id = ?
+                """,
+                Integer.class,
+                commentId,
+                videoId
+        );
+        if (count == null || count == 0)  throw new AuthFailure(404, "comment not found");
     }
 }

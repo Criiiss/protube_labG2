@@ -389,6 +389,61 @@
     outline-color: #f4a3a3;
 }
 
+.comment-like-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 4px 10px;
+    border: 0;
+    border-radius: 6px;
+    color: #8493aa;
+    background: transparent;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+}
+
+.comment-like-button svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    fill: none;
+    stroke: currentColor;
+    transition: transform 0.15s;
+}
+
+.comment-like-button:hover {
+    color: #ff8fa8;
+    background: #ff6f9118;
+}
+
+.comment-like-button:hover svg {
+    transform: scale(1.12);
+}
+
+.comment-like-button:focus-visible {
+    outline: 2px solid #ff6f91;
+    outline-offset: 1px;
+}
+
+.comment-like-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.comment-like-button.is-liked {
+    color: #ff6f91;
+    background: #ff6f9114;
+}
+
+.comment-like-button.is-liked svg {
+    fill: currentColor;
+}
+
 .comment-edit-form {
     display: flex;
     flex-direction: column;

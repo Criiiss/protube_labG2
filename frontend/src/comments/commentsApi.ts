@@ -10,6 +10,7 @@ export interface Comment {
   content: string;
   parentId: string | number | null;
   likeCount: number;
+  likedByCurrentUser: boolean;
   createdAt: string;
 }
 
@@ -40,6 +41,22 @@ export function updateVideoComment(videoId: string, commentId: string | number, 
 export function deleteVideoComment(videoId: string, commentId: string | number): Promise<void> {
   return api<void>(
     `/videos/${encodeURIComponent(videoId)}/comments/${encodeURIComponent(String(commentId))}`,
+    undefined,
+    'DELETE'
+  );
+}
+
+export function likeVideoComment(videoId: string, commentId: string | number): Promise<Comment> {
+  return api<Comment>(
+    `/videos/${encodeURIComponent(videoId)}/comments/${encodeURIComponent(String(commentId))}/like`,
+    undefined,
+    'PUT'
+  );
+}
+
+export function unlikeVideoComment(videoId: string, commentId: string | number): Promise<Comment> {
+  return api<Comment>(
+    `/videos/${encodeURIComponent(videoId)}/comments/${encodeURIComponent(String(commentId))}/like`,
     undefined,
     'DELETE'
   );

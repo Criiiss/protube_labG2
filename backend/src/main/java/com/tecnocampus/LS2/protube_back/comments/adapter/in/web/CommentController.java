@@ -30,8 +30,9 @@ public class CommentController {
     }
 
     @GetMapping
-    public ResponseEntity<List<CommentResponseDTO>> getComments(@PathVariable Long videoId) {
-        return ResponseEntity.ok(commentService.getComments(videoId));
+    public ResponseEntity<List<CommentResponseDTO>> getComments(@PathVariable Long videoId, HttpServletRequest servletRequest) {
+        Long currentUserId = AuthController.optionalUser(servletRequest, authService);
+        return ResponseEntity.ok(commentService.getComments(videoId, currentUserId));
     }
 
     @PatchMapping("/{commentId}")
@@ -46,6 +47,18 @@ public class CommentController {
         Long authorId = AuthController.requireUser(servletRequest,authService);
         commentService.deleteComment( videoId,commentId,authorId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{commentId}/like")
+    public ResponseEntity<CommentResponseDTO> likeComment(@PathVariable Long videoId, @PathVariable Long commentId, HttpServletRequest request) {
+        Long userId = AuthController.requireUser(request, authService);
+        return ResponseEntity.ok(commentService.likeComment(videoId, commentId, userId));
+    }
+
+    @DeleteMapping("/{commentId}/like")
+    public ResponseEntity<CommentResponseDTO> unlikeComment(@PathVariable Long videoId,@PathVariable Long commentId, HttpServletRequest request ) {
+        Long userId = AuthController.requireUser(request, authService);
+        return ResponseEntity.ok(commentService.unlikeComment(videoId, commentId, userId));
     }
 
 }

@@ -93,4 +93,15 @@ public class AuthController {
         }
         return id;
     }
+
+    public static Long optionalUser(HttpServletRequest request,AuthService auth) {
+        HttpSession session = request.getSession(false);
+        if (session == null || !(session.getAttribute("authUser") instanceof Long id)) return null;
+        try {
+            return requireUser(request, auth);
+        } catch (AuthFailure error) {
+            if (error.status == 401) return null;
+            throw error;
+        }
+    }
 }
