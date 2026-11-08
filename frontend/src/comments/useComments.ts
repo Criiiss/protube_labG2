@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../auth/api';
-import { createComment, getVideoComments } from './commentsApi';
+import { createComment, getVideoComments, deleteVideoComment, updateVideoComment } from './commentsApi';
 import type { Comment } from './commentsApi';
 
 const isDemoMode = import.meta.env.VITE_PROFILE_DEMO === 'true';
@@ -85,6 +85,61 @@ export function useComments(videoId: string) {
     }
   };
 
+  const editComment = async (commentId: string | number, content: string): Promise<Comment> => {
+    setSubmitError('');
+    const normalizedContent = content.trim();
+    if (!normalizedContent) {
+      throw new Error('El comentario no puede estar vacío.');
+    }
+    if (normalizedContent.length > 2000) {
+      throw new Error('El comentario no puede superar los 2000 caracteres.');
+    }
+    const currentComment = comments.find((comment) => String(comment.id) === String(commentId));
+    if (!currentComment) {
+      throw new Error('El comentario no existe.');
+    }
+    try {
+      let updatedComment: Comment;
+
+      if (isDemoMode) {
+        updatedComment = {
+          ...currentComment,
+          content: normalizedContent,
+        };
+      } else {
+        updatedComment = await updateVideoComment(videoId, commentId, normalizedContent);
+      }
+
+      setComments((currentComments) =>
+        currentComments.map((comment) => (String(comment.id) === String(commentId) ? updatedComment : comment))
+      );
+
+      return updatedComment;
+    } catch (requestError) {
+      const message = requestError instanceof ApiError ? requestError.message : 'No se pudo editar el comentario.';
+
+      setSubmitError(message);
+      throw new Error(message);
+    }
+  };
+  const removeComment = async (commentId: string | number): Promise<void> => {
+    setSubmitError('');
+    if (isDemoMode) {
+      setComments((currentComments) =>
+        currentComments.filter(
+          (comment) => String(comment.id) !== String(commentId) && String(comment.parentId) !== String(commentId)
+        )
+      );
+      return;
+    }
+    await deleteVideoComment(videoId, commentId);
+    setComments((currentComments) =>
+      currentComments.filter(
+        (comment) => String(comment.id) !== String(commentId) && String(comment.parentId) !== String(commentId)
+      )
+    );
+  };
+
   return {
     comments,
     loading,
@@ -92,6 +147,8 @@ export function useComments(videoId: string) {
     error,
     submitError,
     addComment,
+    editComment,
+    removeComment,
     reload: loadComments,
   };
 }

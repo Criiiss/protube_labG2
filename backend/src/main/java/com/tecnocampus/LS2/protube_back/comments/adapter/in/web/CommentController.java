@@ -34,4 +34,18 @@ public class CommentController {
         return ResponseEntity.ok(commentService.getComments(videoId));
     }
 
+    @PatchMapping("/{commentId}")
+    public ResponseEntity<CommentResponseDTO> updateComment(@PathVariable Long videoId, @PathVariable Long commentId, @RequestBody UpdateCommentRequestDTO request, HttpServletRequest servletRequest) {
+        Long authorId = AuthController.requireUser(servletRequest, authService);
+        CommentResponseDTO updatedComment = commentService.updateComment(videoId, commentId, authorId, request.content());
+        return ResponseEntity.ok(updatedComment);
+    }
+
+    @DeleteMapping("/{commentId}")
+    public ResponseEntity<Void> deleteComment(@PathVariable Long videoId,@PathVariable Long commentId, HttpServletRequest servletRequest) {
+        Long authorId = AuthController.requireUser(servletRequest,authService);
+        commentService.deleteComment( videoId,commentId,authorId);
+        return ResponseEntity.noContent().build();
+    }
+
 }

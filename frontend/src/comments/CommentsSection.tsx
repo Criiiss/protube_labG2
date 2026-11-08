@@ -16,6 +16,191 @@ interface CommentItemProps {
   user: SessionUser | null;
   submitting: boolean;
   onReply: (content: string, parentId: string | number) => Promise<void>;
+  onEdit: (commentId: string | number, content: string) => Promise<Comment>;
+  onDelete: (commentId: string | number) => Promise<void>;
+}
+function CommentItem({ comment, comments, user, submitting, onReply, onEdit, onDelete }: CommentItemProps) {
+  const [replying, setReplying] = useState(false);
+  const [replyContent, setReplyContent] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState(comment.content);
+
+  const authorName = comment.displayName?.trim() || comment.username;
+
+  const avatarUrl = resolveAvatarUrl(comment.avatarUrl);
+  const replies = getReplies(comments, comment.id);
+
+  const isOwner = user && String(user.id) === String(comment.authorId);
+
+  async function handleReplySubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedContent = replyContent.trim();
+
+    if (!normalizedContent) {
+      return;
+    }
+
+    if (!user) {
+      window.location.hash = `/login?redirect=${encodeURIComponent(`/watch?video=${comment.videoId}`)}`;
+      return;
+    }
+
+    await onReply(normalizedContent, comment.id);
+    setReplyContent('');
+    setReplying(false);
+  }
+
+  async function handleEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedContent = editedContent.trim();
+    if (!normalizedContent) {
+      return;
+    }
+    try {
+      await onEdit(comment.id, normalizedContent);
+      setEditing(false);
+    } catch (error) {
+      //mostr error
+    }
+  }
+  async function handleDelete() {
+    const confirmed = window.confirm('¿Seguro que quieres eliminar este comentario?');
+    if (!confirmed) return;
+    await onDelete(comment.id);
+  }
+
+  return (
+    <article className="comment-thread">
+      <div className="comment-item">
+        {avatarUrl ? (
+          <img
+            className="comment-avatar"
+            src={avatarUrl}
+            alt={`Foto de perfil de ${authorName}`}
+            onError={(event) => {
+              event.currentTarget.style.display = 'none';
+            }}
+          />
+        ) : (
+          <span className="comment-avatar comment-avatar-fallback" aria-hidden="true">
+            {getInitials(comment.displayName, comment.username)}
+          </span>
+        )}
+
+        <div className="comment-body">
+          <div className="comment-author">
+            <strong>{authorName}</strong>
+            <span>@{comment.username}</span>
+            <time dateTime={comment.createdAt}>{formatCommentDate(comment.createdAt)}</time>
+          </div>
+
+          {editing ? (
+            <form className="comment-edit-form" onSubmit={handleEdit}>
+              <textarea
+                value={editedContent}
+                onChange={(event) => setEditedContent(event.target.value)}
+                maxLength={2000}
+                disabled={submitting}
+                aria-label="Editar comentario"
+              />
+
+              <div className="comment-edit-actions">
+                <button type="submit" className="primary-button" disabled={submitting || !editedContent.trim()}>
+                  {submitting ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+
+                <button
+                  type="button"
+                  className="comment-action-button"
+                  onClick={() => {
+                    setEditedContent(comment.content);
+                    setEditing(false);
+                  }}
+                  disabled={submitting}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          ) : (
+            <p>{comment.content}</p>
+          )}
+
+          {!editing && (
+            <div className="comment-actions">
+              <button
+                type="button"
+                className="comment-reply-button"
+                onClick={() => {
+                  setReplying(!replying);
+                }}
+              >
+                {replying ? 'Cancelar' : 'Responder'}
+              </button>
+
+              {isOwner && (
+                <>
+                  <button
+                    type="button"
+                    className="comment-action-button"
+                    onClick={() => {
+                      setEditedContent(comment.content);
+                      setEditing(true);
+                      setReplying(false);
+                    }}
+                  >
+                    Editar
+                  </button>
+
+                  <button
+                    type="button"
+                    className="comment-action-button comment-action-danger"
+                    onClick={() => void handleDelete()}
+                  >
+                    Eliminar
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {replying && !editing && (
+            <form className="reply-form" onSubmit={handleReplySubmit}>
+              <textarea
+                value={replyContent}
+                onChange={(event) => setReplyContent(event.target.value)}
+                placeholder="Escribe una respuesta..."
+                maxLength={2000}
+                disabled={submitting}
+                aria-label={`Responder a ${authorName}`}
+              />
+
+              <button type="submit" className="primary-button" disabled={submitting || !replyContent.trim()}>
+                {submitting ? 'Publicando...' : 'Responder'}
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+
+      {replies.length > 0 && (
+        <div className="comment-replies">
+          {replies.map((reply) => (
+            <CommentItem
+              key={reply.id}
+              comment={reply}
+              comments={comments}
+              user={user}
+              submitting={submitting}
+              onReply={onReply}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      )}
+    </article>
+  );
 }
 
 function getInitials(displayName: string | null, username: string): string {
@@ -55,7 +240,8 @@ function resolveAvatarUrl(avatarUrl: string | null): string | undefined {
 
 export function CommentsSection({ videoId, user }: CommentsSectionProps) {
   const [content, setContent] = useState('');
-  const { comments, loading, submitting, error, submitError, addComment } = useComments(videoId);
+  const { comments, loading, submitting, error, submitError, addComment, editComment, removeComment } =
+    useComments(videoId);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -89,6 +275,7 @@ export function CommentsSection({ videoId, user }: CommentsSectionProps) {
         <h2 id="comments-title">Comentarios</h2>
         <span>{comments.length}</span>
       </div>
+
       <form className="comment-form" onSubmit={handleSubmit}>
         <textarea
           value={content}
@@ -98,12 +285,15 @@ export function CommentsSection({ videoId, user }: CommentsSectionProps) {
           aria-label="Escribe un comentario"
           disabled={submitting}
         />
+
         <div className="comment-form-footer">
           <small>{content.length}/2000</small>
+
           <button type="submit" className="primary-button" disabled={submitting || !content.trim()}>
             {submitting ? 'Publicando...' : 'Comentar'}
           </button>
         </div>
+
         {submitError && (
           <p className="comments-error" role="alert">
             {submitError}
@@ -122,6 +312,7 @@ export function CommentsSection({ videoId, user }: CommentsSectionProps) {
           {error}
         </p>
       )}
+
       {!loading && !error && comments.length === 0 && (
         <p className="comments-empty">Todavía no hay comentarios. Sé el primero en comentar.</p>
       )}
@@ -135,6 +326,8 @@ export function CommentsSection({ videoId, user }: CommentsSectionProps) {
             user={user}
             submitting={submitting}
             onReply={handleReply}
+            onEdit={editComment}
+            onDelete={removeComment}
           />
         ))}
       </div>
@@ -149,93 +342,4 @@ function getReplies(comments: Comment[], parentId: string | number): Comment[] {
   return comments
     .filter((comment) => isSameId(comment.parentId, parentId))
     .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime());
-}
-
-function CommentItem({ comment, comments, user, submitting, onReply }: CommentItemProps) {
-  const [replying, setReplying] = useState(false);
-  const [replyContent, setReplyContent] = useState('');
-
-  const authorName = comment.displayName?.trim() || comment.username;
-
-  const avatarUrl = resolveAvatarUrl(comment.avatarUrl);
-  const replies = getReplies(comments, comment.id);
-
-  async function handleReplySubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const normalizedContent = replyContent.trim();
-
-    if (!normalizedContent) {
-      return;
-    }
-
-    if (!user) {
-      window.location.hash = `/login?redirect=${encodeURIComponent(`/watch?video=${comment.videoId}`)}`;
-      return;
-    }
-
-    await onReply(normalizedContent, comment.id);
-    setReplyContent('');
-    setReplying(false);
-  }
-
-  return (
-    <article className="comment-thread">
-      <div className="comment-item">
-        {avatarUrl ? (
-          <img className="comment-avatar" src={avatarUrl} alt={`Foto de perfil de ${authorName}`} />
-        ) : (
-          <span className="comment-avatar comment-avatar-fallback" aria-hidden="true">
-            {getInitials(comment.displayName, comment.username)}
-          </span>
-        )}
-
-        <div className="comment-body">
-          <div className="comment-author">
-            <strong>{authorName}</strong>
-            <span>@{comment.username}</span>
-            <time dateTime={comment.createdAt}>{formatCommentDate(comment.createdAt)}</time>
-          </div>
-
-          <p>{comment.content}</p>
-
-          <button type="button" className="comment-reply-button" onClick={() => setReplying(!replying)}>
-            {replying ? 'Cancelar' : 'Responder'}
-          </button>
-
-          {replying && (
-            <form className="reply-form" onSubmit={handleReplySubmit}>
-              <textarea
-                value={replyContent}
-                onChange={(event) => setReplyContent(event.target.value)}
-                placeholder="Escribe una respuesta..."
-                maxLength={2000}
-                disabled={submitting}
-                aria-label={`Responder a ${authorName}`}
-              />
-
-              <button type="submit" className="primary-button" disabled={submitting || !replyContent.trim()}>
-                {submitting ? 'Publicando...' : 'Responder'}
-              </button>
-            </form>
-          )}
-        </div>
-      </div>
-
-      {replies.length > 0 && (
-        <div className="comment-replies">
-          {replies.map((reply) => (
-            <CommentItem
-              key={reply.id}
-              comment={reply}
-              comments={comments}
-              user={user}
-              submitting={submitting}
-              onReply={onReply}
-            />
-          ))}
-        </div>
-      )}
-    </article>
-  );
 }

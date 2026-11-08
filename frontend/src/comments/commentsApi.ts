@@ -29,3 +29,18 @@ export function createComment(
 export function getVideoComments(videoId: string): Promise<Comment[]> {
   return api<Comment[]>(`/videos/${encodeURIComponent(videoId)}/comments`);
 }
+export function updateVideoComment(videoId: string, commentId: string | number, content: string): Promise<Comment> {
+  return api<Comment>(
+    `/videos/${encodeURIComponent(videoId)}/comments/${encodeURIComponent(String(commentId))}`,
+    { content },
+    'PATCH'
+  );
+}
+
+export function deleteVideoComment(videoId: string, commentId: string | number): Promise<void> {
+  return api<void>(
+    `/videos/${encodeURIComponent(videoId)}/comments/${encodeURIComponent(String(commentId))}`,
+    undefined,
+    'DELETE'
+  );
+}

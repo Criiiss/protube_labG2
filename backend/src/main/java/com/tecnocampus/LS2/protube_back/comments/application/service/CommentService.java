@@ -153,8 +153,114 @@ public class CommentService {
         if (count == null || count == 0) {
             throw new AuthFailure(
                     400,
-                    "El comentario padre no pertenece a este vídeo."
+                    "parent comment does not belong to the video"
             );
         }
+    }
+
+    @Transactional
+    public CommentResponseDTO updateComment(Long videoId, Long commentId, Long authorId, String content) {
+        String normalizedContent = content == null ? "" : content.trim();
+        if (normalizedContent.isBlank()) throw new IllegalArgumentException( "comment content cannot be empty");
+        if (normalizedContent.length() > 2000) throw new IllegalArgumentException("comment content cannot exceed 2000 characters");
+        Integer ownedComment = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM comments
+                WHERE id = ?
+                  AND video_id = ?
+                """,
+                Integer.class,
+                commentId,
+                videoId
+        );
+        if (ownedComment == null || ownedComment == 0) throw new IllegalArgumentException( "The comment does not exist.");
+        Integer isOwner = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM comments
+                WHERE id = ?
+                  AND video_id = ?
+                  AND author_id = ?
+                """,
+                Integer.class,
+                commentId,
+                videoId,
+                authorId
+        );
+        if (isOwner == null || isOwner == 0) throw new AuthFailure(403, "only the author can edit the comment");
+        jdbcTemplate.update(
+                """
+                UPDATE comments
+                SET content = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                  AND video_id = ?
+                  AND author_id = ?
+                """,
+                normalizedContent,
+                commentId,
+                videoId,
+                authorId
+        );
+
+        return getCommentById(commentId);
+    }
+
+    @Transactional
+    public void deleteComment(Long videoId, Long commentId, Long authorId) {
+        Integer isOwner = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM comments
+                WHERE id = ?
+                  AND video_id = ?
+                  AND author_id = ?
+                """,
+                Integer.class,
+                commentId,
+                videoId,
+                authorId
+        );
+        if (isOwner == null || isOwner == 0) {
+            throw new AuthFailure(403, "only the author can delete the comment.");
+        }
+        int deleted = jdbcTemplate.update(
+                """
+                DELETE FROM comments
+                WHERE id = ?
+                  AND video_id = ?
+                  AND author_id = ?
+                """,
+                commentId,
+                videoId,
+                authorId
+        );
+        if (deleted == 0) throw new AuthFailure(404, "El comentario no existe.");
+
+    }
+
+    private CommentResponseDTO getCommentById(Long commentId) {
+        return jdbcTemplate.queryForObject(
+                """
+                SELECT
+                    c.id,
+                    c.video_id,
+                    c.author_id,
+                    u.username,
+                    up.display_name,
+                    up.avatar_url,
+                    c.content,
+                    c.parent_id,
+                    c.like_count,
+                    c.created_at
+                FROM comments c
+                INNER JOIN users u ON u.id = c.author_id
+                LEFT JOIN user_profiles up ON up.user_id = u.id
+                WHERE c.id = ?
+                """,
+                (resultSet, rowNumber) -> mapComment(resultSet),
+                commentId
+        );
     }
 }
