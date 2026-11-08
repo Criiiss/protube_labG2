@@ -92,7 +92,7 @@ public class CommentService {
                     LEFT JOIN user_profiles up ON up.user_id = u.id
                     WHERE c.video_id = ?
                       AND c.parent_id IS NULL
-                    ORDER BY c.created_at ASC
+                    ORDER BY c.created_at DESC 
                     """,
                     (resultSet, rowNumber) -> mapComment(resultSet),
                     videoId

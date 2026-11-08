@@ -22,6 +22,17 @@ function getInitials(displayName: string | null, username: string): string {
     .toUpperCase();
 }
 
+function formatCommentDate(createdAt: string): string {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) {
+    return 'Fecha no disponible';
+  }
+  return new Intl.DateTimeFormat('es-ES', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
 function resolveAvatarUrl(avatarUrl: string | null): string | undefined {
   if (!avatarUrl) {
     return undefined;
@@ -113,6 +124,7 @@ export function CommentsSection({ videoId, user }: CommentsSectionProps) {
                 <div className="comment-author">
                   <strong>{authorName}</strong>
                   <span>@{comment.username}</span>
+                  <time dateTime={comment.createdAt}>{formatCommentDate(comment.createdAt)}</time>
                 </div>
                 <p>{comment.content}</p>
               </div>
