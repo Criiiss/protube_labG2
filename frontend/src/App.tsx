@@ -34,6 +34,12 @@ function App() {
   const [sort, setSort] = useState('recommended');
 
   const session = useSession();
+  const demoUser = {
+    id: 1,
+    username: 'usuario_demo',
+    displayName: 'Usuario Demo',
+    avatarUrl: null,
+  };
   const { library, toggle, visit } = useLibrary(session.user?.id);
   const catalog = useCatalog();
 
@@ -198,7 +204,12 @@ function App() {
         </div>
       );
     } else {
-      content = <VideoPlayer video={selectedVideo} />;
+      content = (
+        <VideoPlayer
+          video={selectedVideo}
+          user={import.meta.env.VITE_PROFILE_DEMO === 'true' ? demoUser : session.user}
+        />
+      );
     }
   } else if (isPublicProfilePage && publicProfileUsername) {
     content = <PublicProfilePage username={publicProfileUsername} />;

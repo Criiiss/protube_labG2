@@ -2,9 +2,12 @@ import { useState } from 'react';
 import type { Video } from '../data/home';
 import { getEnv } from '../utils/Env';
 import './VideoPlayer.css';
+import type { SessionUser } from '../auth/api';
+import { CommentsSection } from '../comments/CommentsSection';
 
 interface VideoPlayerProps {
   video: Video;
+  user: SessionUser | null;
 }
 
 function resolveMediaUrl(path?: string | null): string | undefined {
@@ -31,7 +34,7 @@ const getInitials = (displayName: string | null | undefined, username: string): 
     .toUpperCase();
 };
 
-export function VideoPlayer({ video }: VideoPlayerProps) {
+export function VideoPlayer({ video, user }: VideoPlayerProps) {
   const [videoError, setVideoError] = useState(false);
 
   const videoUrl = resolveMediaUrl(video.videoUrl);
@@ -96,6 +99,7 @@ export function VideoPlayer({ video }: VideoPlayerProps) {
           <h2>Descripción</h2>
           <p>{video.description?.trim() || 'Este vídeo no tiene descripción.'}</p>
         </div>
+        <CommentsSection videoId={video.id} user={user} />
       </div>
     </section>
   );

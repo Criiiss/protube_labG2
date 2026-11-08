@@ -76,14 +76,16 @@ export function AuthPage({ mode, onLogin }: { mode: string; onLogin: (user: Sess
       if (mode === 'login') {
         const user = await api<SessionUser>('/auth/login', { ...values, remember: values.remember === 'yes' });
         onLogin(user);
-        window.location.hash = '/';
+        const redirect = new URLSearchParams(window.location.hash.split('?')[1]).get('redirect');
+        window.location.hash = redirect || '/';
       } else if (mode === 'google-register') {
         const user = await api<SessionUser>('/auth/google/complete', {
           ...values,
           acceptTerms: values.acceptTerms === 'yes',
         });
         onLogin(user);
-        window.location.hash = '/';
+        const redirect = new URLSearchParams(window.location.hash.split('?')[1]).get('redirect');
+        window.location.hash = redirect || '/';
       } else {
         const data = await api<{ message: string }>(`/auth/${mode}`, {
           ...values,
