@@ -11,9 +11,9 @@ public class AuthGuard extends OncePerRequestFilter {
     private final AuthService auth;
     public AuthGuard(AuthService auth) { this.auth = auth; }
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
-        String path = request.getRequestURI().substring(request.getContextPath().length());
+        String path = request.getRequestURI().substring(request.getContextPath().length()).replaceAll(";[^/]*", "");
         try {
-            if (path.startsWith("/api/auth") || path.startsWith("/api/profiles/me")) {
+            if (path.startsWith("/api/auth") || path.startsWith("/api/profiles/me") || path.startsWith("/api/studio/") || path.equals("/api/catalog")) {
                 response.setHeader("Cache-Control", "no-store");
                 if (!java.util.Set.of("GET", "HEAD", "OPTIONS").contains(request.getMethod()) && !"1".equals(request.getHeader("X-Protube-Request")))
                     throw new AuthFailure(403, "Solicitud no permitida. Recarga la página.");

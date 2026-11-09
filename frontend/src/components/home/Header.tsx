@@ -3,6 +3,7 @@ import { Icon } from './Icon';
 import type { SessionUser } from '../../auth/api';
 
 interface HeaderProps {
+  onNotifications?: () => void;
   onSearch: (query: string) => void;
   onAction: (message: string) => void;
   user?: SessionUser | null;
@@ -10,7 +11,7 @@ interface HeaderProps {
   onLogout?: () => void;
 }
 
-export function Header({ onSearch, onAction, user, sessionLoading, onLogout }: HeaderProps) {
+export function Header({ onSearch, onAction, user, sessionLoading, onLogout, onNotifications }: HeaderProps) {
   const [query, setQuery] = useState('');
   const [pinned, setPinned] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -56,7 +57,7 @@ export function Header({ onSearch, onAction, user, sessionLoading, onLogout }: H
           className="icon-button"
           aria-label="Subir contenido"
           onClick={() => {
-            window.location.hash = user ? '/studio' : '/login';
+            window.location.hash = user ? '/studio' : '/login?next=studio';
           }}
         >
           <Icon name="plus" />
@@ -64,7 +65,7 @@ export function Header({ onSearch, onAction, user, sessionLoading, onLogout }: H
         <button
           className="icon-button"
           aria-label="Notificaciones"
-          onClick={() => onAction('No tienes notificaciones nuevas.')}
+          onClick={onNotifications || (() => onAction('No tienes notificaciones nuevas.'))}
         >
           <Icon name="bell" />
         </button>

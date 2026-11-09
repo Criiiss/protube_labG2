@@ -4,15 +4,31 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.sql.*;
+import jakarta.servlet.http.HttpServletRequest;
+import com.tecnocampus.LS2.protube_back.auth.AuthService;
+import com.tecnocampus.LS2.protube_back.studio.StudioService;
+import com.tecnocampus.LS2.protube_back.studio.StudioController;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /** Keeps the legacy /api/videos contract intact; exposes metadata from the existing schema. */
 @RestController
 public class CatalogController {
     private final JdbcTemplate jdbc;
+    @Autowired private StudioService studio;
+    @Autowired private AuthService auth;
     public CatalogController(JdbcTemplate jdbc) { this.jdbc = jdbc; }
     public record Video(String id, String title, String channel, String views, String published, String duration,
         String categoryId, String thumbnail, long viewCount, String createdAt) {}
-    @GetMapping("/api/catalog") public List<Video> videos() {
+    @GetMapping("/api/catalog") public List<Video> catalog(HttpServletRequest request) {
+        var result = new ArrayList<>(videos());
+        for (var item : studio.catalog(StudioController.viewer(request, auth))) {
+            result.add(new Video(item.id(), item.title(), item.channel(), item.views(), item.published(), item.duration(),
+                    item.categoryId(), item.thumbnail(), item.viewCount(), item.createdAt()));
+        }
+        result.sort(Comparator.comparing(Video::createdAt).reversed());
+        return result;
+    }
+    public List<Video> videos() {
         Boolean exists = jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Boolean>) connection -> {
             try (var tables = connection.getMetaData().getTables(null, null, "%", new String[] { "TABLE" })) {
                 while (tables.next()) if ("videos".equalsIgnoreCase(tables.getString("TABLE_NAME"))) return true;

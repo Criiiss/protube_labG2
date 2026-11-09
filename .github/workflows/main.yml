@@ -43,8 +43,19 @@ jobs:
         working-directory: backend
         run: mvn -N io.takari:maven:wrapper
 
+      - name: Set up video tools for Studio tests
+        run: |
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+
       - name: Build and test backend with coverage
         working-directory: backend
+        env:
+          PROTUBE_STUDIO_FFMPEG: ffmpeg
+          PROTUBE_STUDIO_FFPROBE: ffprobe
+          ENV_PROTUBE_STORE_DIR: ${{ runner.temp }}/protube-test-media
         run: |
           ./mvnw clean verify -Pcoverage
 
