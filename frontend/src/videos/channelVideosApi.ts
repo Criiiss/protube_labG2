@@ -3,7 +3,7 @@ import { getEnv } from '../utils/Env';
 
 export type VideoTab = 'published' | 'scheduled' | 'archived' | 'drafts';
 
-const isDemoMode = (): boolean => import.meta.env.VITE_PROFILE_DEMO === 'true';
+const isDemoMode = (): boolean => getEnv().PROFILE_DEMO;
 
 const DEMO_CHANNEL_VIDEOS: Video[] = [
   {
@@ -14,7 +14,7 @@ const DEMO_CHANNEL_VIDEOS: Video[] = [
     published: 'hace 2 días',
     duration: '2:15',
     categoryId: 'all',
-    thumbnail: `${import.meta.env.BASE_URL}dog.png`,
+    thumbnail: `${getEnv().BASE_URL}dog.png`,
     viewCount: 120,
     createdAt: '2026-10-30T10:00:00Z',
   },
@@ -26,7 +26,7 @@ const DEMO_CHANNEL_VIDEOS: Video[] = [
     published: 'hace 5 días',
     duration: '4:30',
     categoryId: 'all',
-    thumbnail: `${import.meta.env.BASE_URL}dog.png`,
+    thumbnail: `${getEnv().BASE_URL}dog.png`,
     viewCount: 45,
     createdAt: '2026-10-27T10:00:00Z',
   },

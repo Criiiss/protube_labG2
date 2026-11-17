@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Icon } from './Icon';
 import type { SessionUser } from '../../auth/api';
+import { getEnv } from '../../utils/Env';
 
 interface HeaderProps {
   onSearch: (query: string) => void;
@@ -11,13 +12,14 @@ interface HeaderProps {
 }
 
 export function Header({ onSearch, onAction, user, sessionLoading, onLogout }: HeaderProps) {
+  const baseUrl = getEnv().BASE_URL;
   const [query, setQuery] = useState('');
   const [pinned, setPinned] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   return (
     <header className="site-header">
-      <a className="brand" href={import.meta.env.BASE_URL} aria-label="protube: volver al inicio y refrescar">
-        <img src={`${import.meta.env.BASE_URL}protube-imago-removebg-preview.png`} alt="" />
+      <a className="brand" href={baseUrl} aria-label="protube: volver al inicio y refrescar">
+        <img src={`${baseUrl}protube-imago-removebg-preview.png`} alt="" />
         <span>
           protube<span className="brand-dot">.</span>
         </span>

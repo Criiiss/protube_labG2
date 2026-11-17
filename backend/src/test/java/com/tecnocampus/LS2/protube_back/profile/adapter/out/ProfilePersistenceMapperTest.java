@@ -13,7 +13,7 @@ import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class ProfilePersistenceMapperTest {
     private static final OffsetDateTime CREATED_AT = OffsetDateTime.parse("2026-10-10T08:00:00Z");
@@ -53,5 +53,31 @@ public class ProfilePersistenceMapperTest {
         assertEquals(CREATED_AT, profile.getCreatedAt());
         assertEquals(PrivacyVisibility.PUBLIC, profile.getPrivacySettings().getSubscriptionsVisibility());
         assertEquals(PrivacyVisibility.PRIVATE, profile.getPrivacySettings().getLikedVideosVisibility());
+    }
+
+    @Test
+    void mapsDomainToEntityUsingProvidedClock() {
+        var now = OffsetDateTime.parse("2026-01-01T00:00:00Z");
+        var mapper = new ProfilePersistenceMapper(Clock.fixed(now.toInstant(), ZoneOffset.UTC));
+        var user = new UserJpaEntity(1L, "user", "u@example.com", "hash", "LOCAL", null, now, now);
+        var profile = new UserProfile(1L, "user", "Display", "/a", "Bio", "/b",
+                new ProfilePrivacySettings(PrivacyVisibility.PUBLIC, PrivacyVisibility.PRIVATE), now);
+        var entity = mapper.toEntity(profile, user);
+        assertEquals("Display", entity.getDisplayName());
+        assertEquals(now, entity.getUpdatedAt());
+        assertEquals(PrivacyVisibility.PUBLIC, entity.getSubscriptionsVisibility());
+    }
+
+    @Test
+    void mapsEntityToDomain() {
+        var now = OffsetDateTime.parse("2026-01-01T00:00:00Z");
+        var user = new UserJpaEntity(1L, "user", "u@example.com", "hash", "LOCAL", null, now, now);
+        var entity = new ProfileJpaEntity(user, "Display", "/a", "Bio", "/b", now,
+                PrivacyVisibility.PUBLIC, PrivacyVisibility.PRIVATE);
+        var profile = new ProfilePersistenceMapper(Clock.systemUTC()).toDomain(entity);
+        assertEquals(1L, profile.getUserId());
+        assertEquals("user", profile.getUsername());
+        assertTrue(profile.getPrivacySettings().isSubscriptionsVisible());
+        assertFalse(profile.getPrivacySettings().isLikedVideosVisible());
     }
 }

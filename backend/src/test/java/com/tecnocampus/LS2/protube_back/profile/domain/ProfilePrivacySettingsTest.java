@@ -4,9 +4,8 @@ import com.tecnocampus.LS2.protube_back.profile.domain.model.PrivacyVisibility;
 import com.tecnocampus.LS2.protube_back.profile.domain.model.ProfilePrivacySettings;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 
 public class ProfilePrivacySettingsTest {
@@ -54,6 +53,28 @@ public class ProfilePrivacySettingsTest {
         assertEquals(PrivacyVisibility.PUBLIC, settings.getLikedVideosVisibility());
         assertTrue(settings.isSubscriptionsVisible());
         assertTrue(settings.isLikedVideosVisible());
+    }
+
+    @Test
+    void togglesBothVisibilitySettings() {
+        var settings = ProfilePrivacySettings.defaultSettings();
+        settings.showSubscriptions();
+        settings.showLikedVideos();
+        assertTrue(settings.isSubscriptionsVisible());
+        assertTrue(settings.isLikedVideosVisible());
+        settings.hideSubscriptions();
+        settings.hideLikedVideos();
+        assertFalse(settings.isSubscriptionsVisible());
+        assertFalse(settings.isLikedVideosVisible());
+    }
+
+    @Test
+    void updatesSettingsAndRejectsNullConstructorValues() {
+        var settings = ProfilePrivacySettings.defaultSettings();
+        settings.updatePrivacySettings(PrivacyVisibility.PUBLIC, PrivacyVisibility.PRIVATE);
+        assertEquals(PrivacyVisibility.PUBLIC, settings.getSubscriptionsVisibility());
+        assertThrows(NullPointerException.class, () -> new ProfilePrivacySettings(null, PrivacyVisibility.PRIVATE));
+        assertThrows(NullPointerException.class, () -> new ProfilePrivacySettings(PrivacyVisibility.PUBLIC, null));
     }
 
 }

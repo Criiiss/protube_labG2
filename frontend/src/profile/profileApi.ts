@@ -30,7 +30,7 @@ const DEMO_PUBLIC_PROFILE: PublicProfile = {
   createdAt: '2024-09-20T12:00:00Z',
 };
 
-const isDemoMode = (): boolean => import.meta.env.VITE_PROFILE_DEMO === 'true';
+const isDemoMode = (): boolean => getEnv().PROFILE_DEMO;
 
 const getDemoProfile = (): MyProfile => {
   const storedProfile = localStorage.getItem(DEMO_PROFILE_KEY);

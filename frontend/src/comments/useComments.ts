@@ -9,8 +9,9 @@ import {
   unlikeVideoComment,
 } from './commentsApi';
 import type { Comment } from './commentsApi';
+import { getEnv } from '../utils/Env';
 
-const isDemoMode = import.meta.env.VITE_PROFILE_DEMO === 'true';
+const isDemoMode = getEnv().PROFILE_DEMO;
 
 const demoComments: Comment[] = [
   {

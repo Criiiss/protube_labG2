@@ -20,8 +20,10 @@ import { useLibrary } from './home/useLibrary';
 import { useCatalog } from './home/useCatalog';
 import { ProfilePage } from './profile/ProfilePage';
 import { PublicProfilePage } from './profile/PublicProfilePage';
+import { getEnv } from './utils/Env';
 
 function App() {
+  const env = getEnv();
   const [expanded, setExpanded] = useState(false);
   const [category, setCategory] = useState('all');
   const [query, setQuery] = useState('');
@@ -207,7 +209,7 @@ function App() {
       content = (
         <VideoPlayer
           video={selectedVideo}
-          user={import.meta.env.VITE_PROFILE_DEMO === 'true' ? demoUser : session.user}
+          user={env.PROFILE_DEMO ? demoUser : session.user}
         />
       );
     }
@@ -215,7 +217,7 @@ function App() {
     content = <PublicProfilePage username={publicProfileUsername} />;
   } else if (privatePage && session.loading) {
     content = <p role="status">Comprobando tu sesión…</p>;
-  } else if (privatePage && !session.user && import.meta.env.VITE_PROFILE_DEMO !== 'true') {
+  } else if (privatePage && !session.user && !env.PROFILE_DEMO) {
     content = (
       <div className="empty-state">
         <h1>Este espacio es para ti.</h1>
@@ -227,7 +229,7 @@ function App() {
     );
   } else if (
     (route === '/profile' || route === '/settings') &&
-    (session.user || import.meta.env.VITE_PROFILE_DEMO === 'true')
+    (session.user || env.PROFILE_DEMO)
   ) {
     content = (
       <ProfilePage

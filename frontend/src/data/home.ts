@@ -58,5 +58,6 @@ export const demoVideos: Video[] = titles.map((title, index) => ({
   published: index % 6 === 0 ? 'hace 1 día' : `hace ${(index % 6) + 1} días`,
   duration: `${8 + index}:24`,
   categoryId: categories[(index % (categories.length - 1)) + 1].id,
-  thumbnail: `${import.meta.env.BASE_URL}dog.png`,
+  thumbnail: `${getEnv().BASE_URL}dog.png`,
 }));
+import { getEnv } from '../utils/Env';

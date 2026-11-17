@@ -39,7 +39,7 @@ public class CommentService {
                         created_at,
                         updated_at
                     )
-                    VALUES (?, ?, NULL, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     """,
                     Statement.RETURN_GENERATED_KEYS
             );
@@ -47,7 +47,7 @@ public class CommentService {
             statement.setLong(2, authId);
             if (parentId == null)statement.setNull(3, Types.BIGINT);
             else statement.setLong(3, parentId);
-            statement.setString(3, normalizedContent);
+            statement.setString(4, normalizedContent);
             return statement;
         }, keyHolder);
         Number generatedId = keyHolder.getKey();
@@ -64,6 +64,7 @@ public class CommentService {
                        c.content,
                        c.parent_id,
                        c.like_count,
+                       FALSE AS liked_by_current_user,
                        c.created_at
                    FROM comments c
                    INNER JOIN users u ON u.id = c.author_id
