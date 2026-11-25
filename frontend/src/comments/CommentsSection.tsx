@@ -69,7 +69,7 @@ function CommentItem({
     try {
       await onEdit(comment.id, normalizedContent);
       setEditing(false);
-    } catch (error) {
+    } catch {
       //mostr error
     }
   }
@@ -86,7 +86,7 @@ function CommentItem({
     }
     try {
       await onToggleLike(comment.id, comment.likedByCurrentUser);
-    } catch (error) {
+    } catch {
       //mostr error
     }
   }
