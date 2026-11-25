@@ -76,7 +76,8 @@ export function AuthPage({ mode, onLogin }: { mode: string; onLogin: (user: Sess
       if (mode === 'login') {
         const user = await api<SessionUser>('/auth/login', { ...values, remember: values.remember === 'yes' });
         onLogin(user);
-        window.location.hash = '/';
+        window.location.hash =
+          new URLSearchParams(window.location.hash.split('?')[1]).get('next') === 'studio' ? '/studio' : '/';
       } else if (mode === 'google-register') {
         const user = await api<SessionUser>('/auth/google/complete', {
           ...values,

@@ -23,6 +23,9 @@ import { SearchPage } from './search/SearchPage';
 import { defaultFilters, searchHash } from './search/searchApi';
 import { PlaylistDialog } from './playlists/PlaylistDialog';
 import { MyPlaylistsPage, PlaylistPage } from './playlists/PlaylistPages';
+import { StudioPage } from './studio/StudioPage';
+import { WatchPage } from './studio/WatchPage';
+import { useStudioNotifications } from './studio/useStudioNotifications';
 
 function App() {
   const [expanded, setExpanded] = useState(false);
@@ -38,9 +41,13 @@ function App() {
   const [sort, setSort] = useState('recommended');
   const session = useSession();
   const { library, toggle, visit } = useLibrary(session.user?.id);
-  const catalog = useCatalog();
   const route = location.slice(1).split('?')[0] || '/';
   const params = new URLSearchParams(location.split('?')[1]);
+  const catalog = useCatalog(route, session.user?.id);
+  const showStudioNotifications = useStudioNotifications(session.user?.id, setNotice);
+  useEffect(() => {
+    if (route === '/studio' && !session.loading && !session.user) window.location.hash = '/login?next=studio';
+  }, [route, session.loading, session.user]);
   useEffect(() => {
     const update = () => {
       setLocation(window.location.hash || '#/');
@@ -80,11 +87,18 @@ function App() {
     filtered.sort((a, b) => (b.createdAt || b.id).localeCompare(a.createdAt || a.id, undefined, { numeric: true }));
   const selectVideo = (video: Video) => {
     if (session.user) visit(video.id);
+    if (video.thumbnail.startsWith('/api/studio/play/')) {
+      window.location.hash = `/watch?id=${encodeURIComponent(video.id)}`;
+      return;
+    }
     setNotice('La reproducción pertenece a la página de vídeo y aún no está implementada.');
   };
   async function action(type: VideoAction, video: Video) {
     if (type === 'share') {
-      const link = `${window.location.origin}${window.location.pathname}#/channel?name=${encodeURIComponent(video.channel)}&video=${encodeURIComponent(video.id)}${sampleMode ? '&sample=1' : ''}`;
+      const target = video.thumbnail.startsWith('/api/studio/play/')
+        ? `/watch?id=${encodeURIComponent(video.id)}`
+        : `/channel?name=${encodeURIComponent(video.channel)}&video=${encodeURIComponent(video.id)}${sampleMode ? '&sample=1' : ''}`;
+      const link = `${window.location.origin}${window.location.pathname}#${target}`;
       try {
         await navigator.clipboard.writeText(link);
         setNotice('Enlace copiado.');
@@ -190,12 +204,12 @@ function App() {
   else if (route === '/playlist')
     content = <PlaylistPage key={params.get('id')} id={params.get('id') ?? ''} renderVideos={cards} />;
   else if (route === '/studio')
-    content = (
-      <div className="empty-state">
-        <h1>Tu Studio.</h1>
-        <p>La subida y gestión de vídeos se conectará con el apartado de publicación de contenido.</p>
-        <a href="#/">Volver al inicio →</a>
-      </div>
+    content = session.user ? <StudioPage key={session.user.id} /> : <p role="status">Comprobando tu sesión…</p>;
+  else if (route === '/watch')
+    content = /^[a-f0-9-]{36}$/.test(params.get('id') || '') ? (
+      <WatchPage key={params.get('id')} id={params.get('id')!} />
+    ) : (
+      <p>Vídeo no disponible.</p>
     );
   else
     content = (
@@ -329,6 +343,7 @@ function App() {
         }}
         searchValue={route === '/search' ? (params.get('q') ?? '') : ''}
         onAction={setNotice}
+        onNotifications={showStudioNotifications}
         user={session.user}
         sessionLoading={session.loading}
         onLogout={() => void session.logout().catch((error) => setNotice(error.message))}
@@ -340,7 +355,7 @@ function App() {
         route={route}
       />
       <div className="content-shell">
-        {!isAuthPage && !['/profile', '/settings', '/terms', '/search', '/playlist', '/playlists'].includes(route) && (
+        {!isAuthPage && !['/profile', '/settings', '/terms', '/search', '/playlist', '/playlists', '/studio', '/watch'].includes(route) && (
           <CategoryBar
             categories={categories}
             selected={category}

@@ -3,6 +3,7 @@ import type { SessionUser } from '../../auth/api';
 import { SearchBox } from '../../search/SearchBox';
 
 interface HeaderProps {
+  onNotifications?: () => void;
   onSearch: (query: string) => void;
   searchValue?: string;
   onAction: (message: string) => void;
@@ -11,7 +12,7 @@ interface HeaderProps {
   onLogout?: () => void;
 }
 
-export function Header({ onSearch, searchValue, onAction, user, sessionLoading, onLogout }: HeaderProps) {
+export function Header({ onSearch, searchValue, onAction, user, sessionLoading, onLogout, onNotifications }: HeaderProps) {
   return (
     <header className="site-header">
       <a className="brand" href={import.meta.env.BASE_URL} aria-label="protube: volver al inicio y refrescar">
@@ -28,7 +29,7 @@ export function Header({ onSearch, searchValue, onAction, user, sessionLoading, 
           className="icon-button"
           aria-label="Subir contenido"
           onClick={() => {
-            window.location.hash = user ? '/studio' : '/login';
+            window.location.hash = user ? '/studio' : '/login?next=studio';
           }}
         >
           <Icon name="plus" />
@@ -36,7 +37,7 @@ export function Header({ onSearch, searchValue, onAction, user, sessionLoading, 
         <button
           className="icon-button"
           aria-label="Notificaciones"
-          onClick={() => onAction('No tienes notificaciones nuevas.')}
+          onClick={onNotifications || (() => onAction('No tienes notificaciones nuevas.'))}
         >
           <Icon name="bell" />
         </button>

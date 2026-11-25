@@ -51,7 +51,7 @@ La primera entrada exige elegir usuario, aportar fecha de nacimiento y aceptar t
 
 La home distingue carga, error, catálogo vacío y modo de muestra voluntario. Conserva el diseño de 3 vídeos + carrusel + bloque final; permite buscar, filtrar, ordenar y cargar más. La selección «Recomendados» conserva el orden del catálogo: no hay un motor personalizado de recomendación.
 
-Biblioteca, Me gusta, Ver más tarde, No me interesa, historial y suscripciones se guardan por usuario en `localStorage` de este navegador. No se sincronizan con la BD ni otros dispositivos. El historial registra la selección de una tarjeta; la reproducción real, la subida y las notificaciones de servidor pertenecen a otros apartados y siguen pendientes. El menú muestra avisos claros para esas funciones.
+Biblioteca, Me gusta, Ver más tarde, No me interesa, historial y suscripciones se guardan por usuario en `localStorage` de este navegador. No se sincronizan con la BD ni otros dispositivos. El historial registra la selección de una tarjeta. Los vídeos subidos a través de [Studio](STUDIO.md) se pueden reproducir desde el catálogo cuando están publicados.
 
 ## Validación
 
