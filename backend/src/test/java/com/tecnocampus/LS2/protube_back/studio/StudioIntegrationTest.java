@@ -14,6 +14,9 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -27,17 +30,25 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/** Runs on Postgres with the Flyway migrations, because READY uploads are published into the videos table (V6). */
 @SpringBootTest(properties = {
         "pro_tube.store.dir=target/test-media",
-        "spring.datasource.url=jdbc:h2:mem:studio-tests;DB_CLOSE_DELAY=-1",
-        "spring.jpa.hibernate.ddl-auto=create-drop", "spring.flyway.enabled=false",
+        "spring.datasource.driver-class-name=org.postgresql.Driver",
+        "spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect",
+        "spring.jpa.hibernate.ddl-auto=validate", "spring.flyway.enabled=true",
+        "pro_tube.sample_videos=false",
         "protube.auth.dev-admin-enabled=false"
 })
 @AutoConfigureMockMvc
+@Testcontainers
 class StudioIntegrationTest {
+    @Container static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16");
     @TempDir static Path folder;
     @DynamicPropertySource static void properties(DynamicPropertyRegistry registry) {
         registry.add("protube.studio.directory", () -> folder.toString());
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
     }
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
@@ -46,6 +57,8 @@ class StudioIntegrationTest {
     @Autowired StudioStorage storage;
     @Autowired SpringDataUserRepository users;
     @Autowired AuthAccounts accounts;
+    @Autowired StudioPublisher publisher;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     private Long owner, stranger;
 
     @BeforeEach void setup() {
@@ -64,6 +77,18 @@ class StudioIntegrationTest {
         account.emailVerified = true;
         accounts.save(account);
         return user.getId();
+    }
+
+    /** True when /api/catalog (as seen by that session, or anonymously) lists the Studio upload. */
+    private boolean listed(String studioId, MockHttpSession session) throws Exception {
+        var request = get("/api/catalog");
+        if (session != null) request.session(session);
+        return mvc.perform(request).andExpect(status().isOk()).andReturn().getResponse().getContentAsString()
+                .contains("/api/studio/play/" + studioId + "/thumbnail");
+    }
+
+    private Map<String, Object> publishedRow(String studioId) {
+        return jdbc.queryForMap("SELECT v.* FROM videos v JOIN studio_videos s ON s.video_id = v.id WHERE s.id = ?", studioId);
     }
 
     private MockHttpSession session(Long id) {
@@ -128,7 +153,8 @@ class StudioIntegrationTest {
         } while (Instant.now().isBefore(deadline));
         assertEquals(StudioVideo.Status.ERROR, result.status());
         assertTrue(result.failure().contains("no coincide"));
-        assertTrue(studio.catalog(owner).stream().noneMatch(entry -> entry.id().equals(item.id())));
+        assertFalse(listed(item.id(), session(owner)));
+        assertNull(videos.findById(item.id()).orElseThrow().videoId);
         mvc.perform(get("/api/studio/play/" + item.id() + "/360.mp4").session(session(owner))).andExpect(status().isNotFound());
     }
 
@@ -142,25 +168,51 @@ class StudioIntegrationTest {
         videos.saveAndFlush(video);
         Files.createDirectories(storage.directory(id));
         Files.write(storage.directory(id).resolve("360.mp4"), new byte[]{1, 2, 3, 4});
-        assertFalse(studio.catalog(null).stream().anyMatch(entry -> entry.id().equals(id)));
+        assertFalse(listed(id, null));
         assertThrows(AuthFailure.class, () -> studio.playback(stranger, id));
         assertEquals(id, studio.playback(owner, id).id());
         studio.edit(owner, id, meta(VideoMetadata.Visibility.PUBLIC, null, true, false, null));
+        assertEquals("DRAFT", publishedRow(id).get("status"));
         assertThrows(AuthFailure.class, () -> studio.playback(null, id));
         studio.edit(owner, id, meta(VideoMetadata.Visibility.PRIVATE, null, false, false, null));
         assertThrows(AuthFailure.class, () -> studio.playback(stranger, id));
         studio.edit(owner, id, meta(VideoMetadata.Visibility.UNLISTED, null, false, false, null));
         assertEquals(id, studio.playback(null, id).id());
-        assertFalse(studio.catalog(null).stream().anyMatch(entry -> entry.id().equals(id)));
+        assertEquals("UNLISTED", publishedRow(id).get("visibility"));
+        assertFalse(listed(id, null));
         studio.edit(owner, id, meta(VideoMetadata.Visibility.PUBLIC, Instant.now().minusSeconds(1), false, true, null));
         assertThrows(AuthFailure.class, () -> studio.playback(stranger, id));
-        assertEquals(id, studio.playback(createUser(30), id).id());
+        Long adult = createUser(30);
+        assertEquals(id, studio.playback(adult, id).id());
+        assertFalse(listed(id, null));
+        assertFalse(listed(id, session(stranger)));
+        assertTrue(listed(id, session(adult)));
+        assertTrue(listed(id, session(owner)));
         mvc.perform(get("/api/studio/play/" + id).session(session(owner))).andExpect(jsonPath("$.commentsAllowed").value(false));
         mvc.perform(get("/api/studio/play/" + id + "/360.mp4").session(session(owner)).header("Range", "bytes=0-1"))
                 .andExpect(status().isPartialContent()).andExpect(content().bytes(new byte[]{1, 2}));
         studio.edit(owner, id, meta(VideoMetadata.Visibility.PUBLIC, null, false, false, null));
-        assertTrue(studio.catalog(null).stream().anyMatch(entry -> entry.id().equals(id) && entry.duration().equals("1:04")));
-        mvc.perform(get("/api/catalog")).andExpect(status().isOk());
+        assertTrue(listed(id, null));
+        var row = publishedRow(id);
+        assertEquals("PUBLISHED", row.get("status"));
+        assertEquals(0, new java.math.BigDecimal("64").compareTo((java.math.BigDecimal) row.get("duration_sec")));
+        assertEquals(List.of("test"), jdbc.queryForList("SELECT t.name FROM video_tags vt JOIN tags t ON t.id = vt.tag_id WHERE vt.video_id = ?",
+                String.class, row.get("id")));
+        assertEquals(row.get("id"), studio.playback(null, id).videoId());
+    }
+
+    @Test void scheduledVideosArePublishedWhenTheirDateArrives() throws Exception {
+        var item = studio.start(owner, input(new byte[]{7}, meta(VideoMetadata.Visibility.PUBLIC, null, false, false, null)));
+        var video = videos.findById(item.id()).orElseThrow();
+        video.status = StudioVideo.Status.READY;
+        videos.saveAndFlush(video);
+        studio.edit(owner, item.id(), meta(VideoMetadata.Visibility.PUBLIC, Instant.now().plusSeconds(3600), false, false, null));
+        assertEquals("SCHEDULED", publishedRow(item.id()).get("status"));
+        assertFalse(listed(item.id(), null));
+        assertEquals(0, publisher.publishDue(Instant.now()));
+        assertTrue(publisher.publishDue(Instant.now().plusSeconds(7200)) >= 1);
+        assertEquals("PUBLISHED", publishedRow(item.id()).get("status"));
+        assertTrue(listed(item.id(), null));
     }
 
     @Test void validatesVideoLimitsAndCustomThumbnailBeforeSelection() throws Exception {
@@ -209,7 +261,7 @@ class StudioIntegrationTest {
         } while (Instant.now().isBefore(deadline));
         assertEquals(StudioVideo.Status.READY, result.status(), result.failure());
         assertEquals(2.0, result.duration(), 0.2);
-        assertTrue(studio.catalog(null).stream().anyMatch(entry -> entry.id().equals(item.id())));
+        assertTrue(listed(item.id(), null));
         for (String height : List.of("360", "720", "1080")) {
             var probe = new ProcessBuilder(ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries",
                     "stream=height", "-of", "csv=p=0", storage.directory(item.id()).resolve(height + ".mp4").toString()).start();

@@ -75,7 +75,7 @@ export function PlaylistDialog({ video, onClose }: { video: Video; onClose: (mes
         </div>
         <p className="dialog-subtitle">{video.title}</p>
         {!allowed ? (
-          <p className="form-message">Los vídeos subidos desde Studio todavía no se pueden añadir a playlists.</p>
+          <p className="form-message">Este vídeo no se puede añadir a una playlist.</p>
         ) : (
           <>
             {error && (

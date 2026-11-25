@@ -99,12 +99,12 @@ public class PlaylistService {
         if (owner.isEmpty() || owner.get(0) != userId) throw new AuthFailure(404, "Esta playlist no existe o no es tuya.");
     }
 
-    /** Studio uploads have text ids and can't be added: playlist_videos points to videos(id). */
+    /** playlist_videos points to videos(id): anything else (e.g. a Studio upload id) is rejected. */
     private static long catalogueId(String videoId) {
         try {
             return Long.parseLong(videoId);
         } catch (NumberFormatException | NullPointerException ex) {
-            throw new AuthFailure(400, "Los vídeos subidos desde Studio todavía no se pueden añadir a playlists.");
+            throw new AuthFailure(400, "Este vídeo no se puede añadir a una playlist.");
         }
     }
 }

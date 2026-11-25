@@ -1,5 +1,9 @@
 version: "3.9"
 
+# docker compose up -d --build      -> whole app on http://localhost:8080 (see docs/DOCKER.md)
+# docker compose up -d db search    -> only the databases, to run backend/frontend from the IDE
+# docker compose run --rm backend-tests  -> backend tests with FFmpeg (profile "test")
+
 services:
   db:
     image: postgres:16
@@ -8,11 +12,15 @@ services:
     environment:
       POSTGRES_USER: ${ENV_PROTUBE_DB_USER:-admin}
       POSTGRES_PASSWORD: ${ENV_PROTUBE_DB_PASS:-password}
-      POSTGRES_DB: ${ENV_PROTUBE_DB}
+      POSTGRES_DB: ${ENV_PROTUBE_DB:-postgres}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      retries: 20
 
   # Search index (US-08). Its data is rebuilt from Postgres, so no volume is needed.
   search:
@@ -22,5 +30,54 @@ services:
     ports:
       - "27017:27017"
 
+  # Backend + frontend + FFmpeg (Studio conversions and thumbnails). Flyway migrates the db at startup.
+  app:
+    build:
+      context: .
+      target: app
+    container_name: protube_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      search:
+        condition: service_started
+    environment:
+      ENV_PROTUBE_DB_HOST: db
+      ENV_PROTUBE_DB: ${ENV_PROTUBE_DB:-postgres}
+      ENV_PROTUBE_DB_USER: ${ENV_PROTUBE_DB_USER:-admin}
+      ENV_PROTUBE_DB_PASS: ${ENV_PROTUBE_DB_PASS:-password}
+      ENV_PROTUBE_MONGO_URI: mongodb://search:27017/protube
+      ENV_PROTUBE_FRONTEND_URL: http://localhost:8080
+      ENV_PROTUBE_GOOGLE_CALLBACK: http://localhost:8080/api/auth/google/callback
+      ENV_PROTUBE_GOOGLE_CLIENT_ID: ${ENV_PROTUBE_GOOGLE_CLIENT_ID:-}
+      ENV_PROTUBE_GOOGLE_CLIENT_SECRET: ${ENV_PROTUBE_GOOGLE_CLIENT_SECRET:-}
+      ENV_PROTUBE_SAMPLE_VIDEOS: ${ENV_PROTUBE_SAMPLE_VIDEOS:-true}
+    ports:
+      - "8080:8080"
+    volumes:
+      # Folder with the videoGrabber output (<id>.mp4/.webp/.json); imported at startup
+      - ${ENV_PROTUBE_STORE_DIR:-./videos}:/data/videos
+      # Studio uploads and their converted versions
+      - studio_data:/data/studio
+
+  # Full backend test suite with FFmpeg, so Studio's conversion tests run (and coverage passes) on any machine.
+  # Testcontainers starts its databases through the host's Docker.
+  backend-tests:
+    profiles: ["test"]
+    build:
+      context: .
+      target: test
+    environment:
+      TESTCONTAINERS_HOST_OVERRIDE: host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./backend:/src/backend
+      - maven_cache:/root/.m2
+      - /var/run/docker.sock:/var/run/docker.sock
+
 volumes:
   postgres_data:
+  studio_data:
+  maven_cache:

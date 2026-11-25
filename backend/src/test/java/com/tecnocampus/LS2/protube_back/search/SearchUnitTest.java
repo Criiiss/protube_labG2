@@ -59,25 +59,6 @@ class SearchUnitTest {
                 .containsExactly("hoy", "hace 1 día", "hace 5 días", "hace 1 mes", "hace 3 meses", "hace 1 año", "hace 2 años");
     }
 
-    @Test void readsStudioMetadataLikeTheStudioCatalog() {
-        Instant now = Instant.parse("2026-11-25T12:00:00Z");
-        String ok = "{\"title\":\"Mi vídeo\",\"description\":\"d\",\"tags\":[\"a\",\"b\"],\"visibility\":\"PUBLIC\",\"draft\":false,"
-                + "\"ageRestricted\":false,\"publishAt\":\"2026-11-20T10:00:00Z\"}";
-        SearchDocument doc = SearchIndexer.studioVideo("s1", ok, 30, now, "ana", now);
-        assertThat(doc.title()).isEqualTo("Mi vídeo");
-        assertThat(doc.tags()).containsExactly("a", "b");
-        assertThat(doc.createdAt()).isEqualTo(Instant.parse("2026-11-20T10:00:00Z"));
-        assertThat(doc.thumbnail()).isEqualTo("/api/studio/play/s1/thumbnail");
-        assertThat(SearchIndexer.studioVideo("s2", ok.replace("2026-11-20T10:00:00Z", "2027-01-01T00:00:00Z"), 1, now, "a", now)).isNull();
-        assertThat(SearchIndexer.studioVideo("s3", ok.replace("\"PUBLIC\"", "\"UNLISTED\""), 1, now, "a", now)).isNull();
-        assertThat(SearchIndexer.studioVideo("s4", ok.replace("\"draft\":false", "\"draft\":true"), 1, now, "a", now)).isNull();
-        assertThat(SearchIndexer.studioVideo("s5", ok.replace("\"ageRestricted\":false", "\"ageRestricted\":true"), 1, now, "a", now)).isNull();
-        assertThat(SearchIndexer.studioVideo("s6", ok.replace("\"2026-11-20T10:00:00Z\"", "1763632800.000000000"), 1, now, "a", now))
-                .isNotNull();
-        assertThat(SearchIndexer.studioVideo("s7", "{\"title\":\"x\",\"visibility\":\"PUBLIC\"}", 1, now, "a", now).createdAt()).isEqualTo(now);
-        assertThat(SearchIndexer.studioVideo("s8", "not json", 1, now, "a", now)).isNull();
-    }
-
     @Test void controllerPassesParamsAndReports503WhenMongoIsDown() throws Exception {
         SearchService service = mock(SearchService.class);
         MockMvc mvc = MockMvcBuilders.standaloneSetup(new SearchController(service)).build();

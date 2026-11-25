@@ -1,0 +1,8 @@
+**/node_modules
+**/target
+frontend/dist
+frontend/coverage
+.git
+.idea
+**/*.iml
+state

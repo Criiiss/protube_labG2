@@ -86,29 +86,18 @@ class PostgresFeaturesTest {
                 .isEqualTo("desconocido");
     }
 
-    @Test void indexesPublicVideosStudioUploadsAndPlaylists() {
+    @Test void indexesPublicNonAdultVideosAndPlaylists() {
         importer.importSamples();
         jdbc.update("UPDATE videos SET visibility = 'PRIVATE' WHERE file_name = 'sample-1.mp4'");
+        jdbc.update("UPDATE videos SET age_restricted = TRUE WHERE file_name = 'sample-4.mp4'");
         long owner = count("SELECT MIN(id) FROM users");
-        jdbc.execute("""
-                CREATE TABLE IF NOT EXISTS studio_videos (id VARCHAR(255) PRIMARY KEY, owner_id BIGINT NOT NULL,
-                  filename VARCHAR(255) NOT NULL, checksum VARCHAR(64) NOT NULL, total_bytes BIGINT NOT NULL,
-                  received_bytes BIGINT NOT NULL, status VARCHAR(255) NOT NULL, metadata TEXT NOT NULL,
-                  created_at TIMESTAMPTZ NOT NULL, duration DOUBLE PRECISION NOT NULL)""");
-        // studio_videos comes from V3 (Studio); the CREATE above only matters when V3 is absent
-        String insert = """
-                INSERT INTO studio_videos (id, owner_id, filename, checksum, total_bytes, received_bytes, status, metadata, created_at, duration)
-                VALUES (?, ?, 'v.mp4', 'abc', 1, 1, ?, ?, now(), 30) ON CONFLICT DO NOTHING""";
-        jdbc.update(insert, "up-1", owner, "READY",
-                "{\"title\":\"Subido en Studio\",\"tags\":[\"studio\"],\"visibility\":\"PUBLIC\",\"draft\":false,\"publishAt\":null}");
-        jdbc.update(insert, "up-2", owner, "PROCESSING", "{\"title\":\"Aún no\",\"visibility\":\"PUBLIC\"}");
         var pl = playlists.create(owner, new PlaylistService.NewPlaylist("Mis favoritos", null, "PUBLIC"));
         playlists.create(owner, new PlaylistService.NewPlaylist("Secreta", null, "PRIVATE"));
         playlists.addVideo(owner, pl.id(), jdbc.queryForObject("SELECT id FROM videos WHERE file_name = 'sample-2.mp4'", String.class));
 
         List<SearchDocument> videos = SearchIndexerAccess.videos(jdbc);
-        assertThat(videos).extracting(SearchDocument::title).contains("Subido en Studio", "Lo-fi para estudiar y concentrarse")
-                .doesNotContain("Aún no", "Guitarra acústica para principiantes: primeros acordes");
+        assertThat(videos).extracting(SearchDocument::title).contains("Lo-fi para estudiar y concentrarse")
+                .doesNotContain("Guitarra acústica para principiantes: primeros acordes", "Receta de paella valenciana tradicional");
         assertThat(SearchIndexerAccess.playlists(jdbc)).anySatisfy(p -> {
             assertThat(p.title()).isEqualTo("Mis favoritos");
             assertThat(p.videoCount()).isEqualTo(1);
@@ -133,7 +122,7 @@ class PostgresFeaturesTest {
         assertThat(playlists.get(mine.id(), bob).mine()).isFalse();
 
         assertThatThrownBy(() -> playlists.addVideo(bob, mine.id(), video)).isInstanceOf(AuthFailure.class);
-        assertThatThrownBy(() -> playlists.addVideo(ana, mine.id(), "up-1")).hasMessageContaining("Studio");
+        assertThatThrownBy(() -> playlists.addVideo(ana, mine.id(), "up-1")).hasMessageContaining("no se puede añadir");
         assertThatThrownBy(() -> playlists.addVideo(ana, mine.id(), "999999")).hasMessageContaining("no existe");
         assertThatThrownBy(() -> playlists.create(ana, new PlaylistService.NewPlaylist(" ", null, null))).hasMessageContaining("título");
         assertThatThrownBy(() -> playlists.create(ana, new PlaylistService.NewPlaylist("x", "d".repeat(5001), null))).hasMessageContaining("descripción");

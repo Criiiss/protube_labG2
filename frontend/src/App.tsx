@@ -30,12 +30,9 @@ import { StudioPage } from './studio/StudioPage';
 import { WatchPage } from './studio/WatchPage';
 import { useStudioNotifications } from './studio/useStudioNotifications';
 
-/** Studio uploads are played by the Studio watch page; catalogue videos by VideoPlayer. */
-const isStudioVideo = (video: Video) => video.thumbnail.startsWith('/api/studio/play/');
+/** Every catalogue video (imported or published from Studio) plays in VideoPlayer; /watch?id= is Studio's preview. */
 const watchHash = (video: Video, sampleMode: boolean) =>
-  isStudioVideo(video)
-    ? `/watch?id=${encodeURIComponent(video.id)}`
-    : `/watch?video=${encodeURIComponent(video.id)}${sampleMode ? '&sample=1' : ''}`;
+  `/watch?video=${encodeURIComponent(video.id)}${sampleMode ? '&sample=1' : ''}`;
 
 function App() {
   const env = getEnv();

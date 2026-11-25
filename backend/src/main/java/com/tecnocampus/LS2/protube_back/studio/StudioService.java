@@ -21,6 +21,7 @@ public class StudioService {
     private final AuthAccounts accounts;
     private final SpringDataUserRepository users;
     private final ObjectMapper json;
+    private final StudioPublisher publisher;
     private final long maximumBytes;
     private final int maximumSeconds;
 
@@ -30,15 +31,15 @@ public class StudioService {
                        StudioVideo.Status status, double duration, String failure, Instant finishedAt,
                        VideoMetadata metadata, List<String> thumbnails) {}
     public record Playback(String id, String title, String description, String channel, List<String> tags,
-                           String category, String language, boolean ageRestricted, boolean commentsAllowed, double duration, String thumbnail) {}
-    public record Listing(String id, String title, String channel, String views, String published, String duration,
-                          String categoryId, String thumbnail, long viewCount, String createdAt) {}
+                           String category, String language, boolean ageRestricted, boolean commentsAllowed, double duration,
+                           String thumbnail, Long videoId) {}
 
     public StudioService(StudioVideos videos, StudioStorage storage, AuthAccounts accounts, SpringDataUserRepository users,
-                         ObjectMapper json, @Value("${protube.studio.max-bytes:104857600}") long maximumBytes,
+                         ObjectMapper json, StudioPublisher publisher,
+                         @Value("${protube.studio.max-bytes:104857600}") long maximumBytes,
                          @Value("${protube.studio.max-seconds:1200}") int maximumSeconds) {
         this.videos = videos; this.storage = storage; this.accounts = accounts; this.users = users; this.json = json;
-        this.maximumBytes = maximumBytes; this.maximumSeconds = maximumSeconds;
+        this.publisher = publisher; this.maximumBytes = maximumBytes; this.maximumSeconds = maximumSeconds;
     }
 
     Limits limits() { return new Limits(maximumBytes, maximumSeconds, CHUNK_SIZE, IMAGE_SIZE); }
@@ -108,7 +109,13 @@ public class StudioService {
         if (metadata.thumbnail().equals("custom") && !Files.isRegularFile(storage.directory(id).resolve("custom.jpg")))
             throw error(400, "Sube primero la miniatura personalizada.");
         video.metadata = encode(metadata);
+        publisher.sync(video, metadata, Instant.now());
         return item(video);
+    }
+
+    /** Called by the worker, inside its transaction, when processing finishes successfully. */
+    void publish(StudioVideo video) {
+        publisher.sync(video, metadata(video), Instant.now());
     }
 
     @Transactional(rollbackFor = IOException.class)
@@ -120,24 +127,11 @@ public class StudioService {
         return item(video);
     }
 
-    public List<Listing> catalog(Long viewer) {
-        return videos.findByStatusOrderByCreatedAtDesc(StudioVideo.Status.READY).stream().filter(video -> {
-            var m = metadata(video);
-            return m.visibility() == VideoMetadata.Visibility.PUBLIC && m.published(Instant.now()) && allowedAge(video, m, viewer);
-        }).map(video -> {
-            var m = metadata(video);
-            long seconds = (long) video.duration;
-            return new Listing(video.id, m.title(), channel(video), "0 visualizaciones", "",
-                    "%d:%02d".formatted(seconds / 60, seconds % 60), m.category(),
-                    "/api/studio/play/" + video.id + "/thumbnail", 0, video.createdAt.toString());
-        }).toList();
-    }
-
     Playback playback(Long viewer, String id) {
         var video = visible(viewer, id);
         var m = metadata(video);
         return new Playback(id, m.title(), m.description(), channel(video), m.tags(), m.category(), m.language(),
-                m.ageRestricted(), m.commentsAllowed(), video.duration, m.thumbnail());
+                m.ageRestricted(), m.commentsAllowed(), video.duration, m.thumbnail(), video.videoId);
     }
 
     FileSystemResource publicFile(Long viewer, String id, String filename) {

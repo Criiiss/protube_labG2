@@ -81,10 +81,10 @@ describe('PlaylistDialog', () => {
     });
   });
 
-  it('explains that Studio uploads cannot be added and closes with Escape or the backdrop', () => {
+  it('explains that a video without catalogue id cannot be added and closes with Escape or the backdrop', () => {
     const onClose = jest.fn();
     const { container } = render(<PlaylistDialog video={video('abc-studio')} onClose={onClose} />);
-    expect(screen.getByText(/Studio todavía no se pueden añadir/)).toBeInTheDocument();
+    expect(screen.getByText(/no se puede añadir a una playlist/)).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
     fireEvent.click(container.querySelector('.dialog-backdrop') as Element);

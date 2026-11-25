@@ -18,7 +18,7 @@ export interface PlaylistDetail {
   videos: Video[];
 }
 
-/** Studio uploads have text ids and can't be added to playlists yet. */
+/** Only catalogue videos (numeric ids of the videos table) can go in a playlist. */
 export const canAddToPlaylist = (video: Video) => /^\d+$/.test(video.id);
 
 export const myPlaylists = (videoId?: string) =>

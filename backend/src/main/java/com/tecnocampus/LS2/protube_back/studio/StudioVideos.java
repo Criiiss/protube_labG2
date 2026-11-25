@@ -7,7 +7,6 @@ import java.util.*;
 
 public interface StudioVideos extends JpaRepository<StudioVideo, String> {
     List<StudioVideo> findByOwnerIdAndStatusNotOrderByCreatedAtDesc(Long ownerId, StudioVideo.Status status);
-    List<StudioVideo> findByStatusOrderByCreatedAtDesc(StudioVideo.Status status);
     Optional<StudioVideo> findFirstByOwnerIdAndChecksumAndStatus(Long ownerId, String checksum, StudioVideo.Status status);
     Optional<StudioVideo> findFirstByStatusOrderByCreatedAtAsc(StudioVideo.Status status);
     @Lock(LockModeType.PESSIMISTIC_WRITE)

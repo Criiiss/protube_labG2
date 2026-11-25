@@ -20,6 +20,10 @@ function resolveMediaUrl(path?: string | null): string | undefined {
   if (path.startsWith('/media/')) {
     return `${getEnv().MEDIA_BASE_URL}${path.slice('/media'.length)}`;
   }
+  // Videos published from Studio are streamed by the backend API (/api/studio/play/{id}/...)
+  if (path.startsWith('/api/')) {
+    return `${getEnv().API_BASE_URL}${path.slice('/api'.length)}`;
+  }
   return path;
 }
 const getInitials = (displayName: string | null | undefined, username: string): string => {

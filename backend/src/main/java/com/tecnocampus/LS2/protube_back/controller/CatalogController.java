@@ -3,20 +3,21 @@ package com.tecnocampus.LS2.protube_back.controller;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
+import java.time.LocalDate;
 import java.util.*;
 import java.sql.*;
 import jakarta.servlet.http.HttpServletRequest;
 import com.tecnocampus.LS2.protube_back.auth.AuthService;
-import com.tecnocampus.LS2.protube_back.studio.StudioService;
+import com.tecnocampus.LS2.protube_back.auth.AuthAccounts;
 import com.tecnocampus.LS2.protube_back.studio.StudioController;
 import org.springframework.beans.factory.annotation.Autowired;
 
-/** Catalogue: public published videos of the videos table plus the public, ready Studio uploads. */
+/** Catalogue: public published videos (imported and published from Studio). 18+ ones only for adults and their owner. */
 @RestController
 public class CatalogController {
     private final JdbcTemplate jdbc;
-    @Autowired private StudioService studio;
     @Autowired private AuthService auth;
+    @Autowired private AuthAccounts accounts;
     public CatalogController(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     public record Video(
@@ -39,21 +40,26 @@ public class CatalogController {
 
     @GetMapping("/api/catalog")
     public List<Video> catalog(HttpServletRequest request) {
-        var result = new ArrayList<>(videos());
-        for (var item : studio.catalog(StudioController.viewer(request, auth))) {
-            // Studio uploads are played by the Studio watch page, so they carry no videoUrl
-            result.add(new Video(item.id(), item.title(), item.channel(), item.channel(), null, null, item.views(),
-                    item.published(), item.duration(), item.categoryId(), item.thumbnail(), null, item.viewCount(),
-                    item.createdAt()));
-        }
-        result.sort(Comparator.comparing(Video::createdAt, Comparator.nullsLast(Comparator.reverseOrder())));
-        return result;
+        Long viewer = StudioController.viewer(request, auth);
+        boolean adult = viewer != null && accounts.findById(viewer)
+                .map(account -> account.birthDate != null && !account.birthDate.isAfter(LocalDate.now().minusYears(18)))
+                .orElse(false);
+        return videos(viewer, adult);
     }
 
+    /** What an anonymous visitor sees. */
     public List<Video> videos() {
-        if (!videosTableExists()) {
+        return videos(null, false);
+    }
+
+    public List<Video> videos(Long viewer, boolean adult) {
+        if (!tableExists("videos")) {
             return List.of();
         }
+        Map<Long, String> categories = new HashMap<>();
+        if (tableExists("video_categories"))
+            jdbc.query("SELECT vc.video_id, MIN(c.name) FROM video_categories vc JOIN categories c ON c.id = vc.category_id GROUP BY vc.video_id",
+                    row -> { categories.put(row.getLong(1), row.getString(2)); });
 
         return jdbc.query(
                 """
@@ -73,6 +79,7 @@ public class CatalogController {
                 INNER JOIN users u ON u.id = v.owner_id
                 LEFT JOIN user_profiles up ON up.user_id = u.id
                 WHERE v.status = 'PUBLISHED' AND v.visibility = 'PUBLIC'
+                  AND (v.age_restricted = FALSE OR ? OR v.owner_id = ?)
                 ORDER BY v.created_at DESC
                 """,
                 (resultSet, rowNumber) -> {
@@ -95,7 +102,7 @@ public class CatalogController {
                             viewCount + " visualizaciones",
                             "",
                             formatDuration(durationSeconds),
-                            "all",
+                            categories.getOrDefault(resultSet.getLong("id"), "all"),
                             getThumbnailUrl(thumbnailName),
                             getVideoUrl(fileName),
                             viewCount,
@@ -103,11 +110,12 @@ public class CatalogController {
                                     ? null
                                     : createdAt.toInstant().toString()
                     );
-                }
+                },
+                adult, viewer == null ? -1L : viewer
         );
     }
 
-    private boolean videosTableExists() {
+    private boolean tableExists(String name) {
         Boolean exists = jdbc.execute((ConnectionCallback<Boolean>) connection -> {
             try (var tables = connection.getMetaData().getTables(
                     null,
@@ -116,7 +124,7 @@ public class CatalogController {
                     new String[]{"TABLE"}
             )) {
                 while (tables.next()) {
-                    if ("videos".equalsIgnoreCase(tables.getString("TABLE_NAME"))) {
+                    if (name.equalsIgnoreCase(tables.getString("TABLE_NAME"))) {
                         return true;
                     }
                 }

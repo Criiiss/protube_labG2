@@ -18,5 +18,7 @@ public class StudioVideo {
     Instant finishedAt;
     double duration;
     @Column(length = 500) String failure;
+    /** Row in videos that publishes this upload once it is READY (V6). */
+    Long videoId;
     public enum Status { UPLOADING, QUEUED, PROCESSING, READY, ERROR, CANCELLED }
 }

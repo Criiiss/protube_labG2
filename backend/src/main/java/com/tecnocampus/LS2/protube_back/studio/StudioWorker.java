@@ -15,10 +15,20 @@ public class StudioWorker {
     private final StudioVideos videos;
     private final VideoProcessor processor;
     private final TransactionTemplate transaction;
+    private final StudioService studio;
+    private final StudioPublisher publisher;
     private volatile boolean started;
 
-    public StudioWorker(StudioVideos videos, VideoProcessor processor, TransactionTemplate transaction) {
+    public StudioWorker(StudioVideos videos, VideoProcessor processor, TransactionTemplate transaction,
+                        StudioService studio, StudioPublisher publisher) {
         this.videos = videos; this.processor = processor; this.transaction = transaction;
+        this.studio = studio; this.publisher = publisher;
+    }
+
+    /** Scheduled videos (status SCHEDULED in videos) go public once their date arrives. */
+    @Scheduled(fixedDelay = 30000)
+    public void publishScheduled() {
+        transaction.executeWithoutResult(status -> publisher.publishDue(Instant.now()));
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -55,6 +65,7 @@ public class StudioWorker {
             current.failure = error;
             current.finishedAt = Instant.now();
             current.status = error == null ? StudioVideo.Status.READY : StudioVideo.Status.ERROR;
+            studio.publish(current); // READY uploads get their row in videos
         }));
     }
 }

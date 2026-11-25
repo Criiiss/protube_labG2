@@ -67,9 +67,10 @@ Una herramienta que ejecuta scripts SQL **versionados** y en orden. Los scripts 
 backend/src/main/resources/db/migration/
 ├── V1__init_schema.sql                  ← esquema inicial
 ├── V2__authentication.sql               ← auth_accounts, auth_tokens
-├── V3__studio_videos.sql                ← studio_videos (rama flopezm_sprint2, pendiente de merge)
+├── V3__studio_videos.sql                ← studio_videos (cola de subida de Studio)
 ├── V4__add_video_visibility_status.sql  ← videos.visibility y videos.status
-└── V5__playlists.sql                    ← playlists, playlist_videos
+├── V5__playlists.sql                    ← playlists, playlist_videos
+└── V6__studio_publishes_to_videos.sql   ← Studio publica en videos (publish_at, age_restricted, UNLISTED…)
 ```
 
 El nombre sigue el formato `V<número>__<descripción>.sql` (dos guiones bajos).
@@ -183,6 +184,10 @@ erDiagram
     users ||--o{ playlists : "crea"
     playlists ||--o{ playlist_videos : "contiene"
     videos ||--o{ playlist_videos : "aparece en"
+    users ||--o| auth_accounts : "datos de login"
+    users ||--o{ auth_tokens : "tokens"
+    users ||--o{ studio_videos : "sube en Studio"
+    studio_videos |o--o| videos : "se publica como (V6)"
 
     users {
         bigint id PK
@@ -216,10 +221,38 @@ erDiagram
         numeric duration_sec
         bigint view_count "contador cacheado"
         bigint like_count "contador cacheado"
-        varchar visibility "PUBLIC | PRIVATE (V4)"
+        varchar visibility "PUBLIC | PRIVATE | UNLISTED (V4, V6)"
         varchar status "DRAFT | SCHEDULED | PUBLISHED | ARCHIVED (V4)"
+        timestamptz publish_at "V6: fecha de un SCHEDULED"
+        boolean age_restricted "V6: 18+"
+        boolean comments_allowed "V6"
+        varchar language "V6"
         timestamptz created_at
         timestamptz updated_at
+    }
+    auth_accounts {
+        bigint user_id PK,FK
+        date birth_date
+        timestamptz terms_accepted_at
+        boolean email_verified
+        int session_version "invalida sesiones"
+    }
+    auth_tokens {
+        varchar token_hash PK "SHA-256 del token"
+        bigint user_id FK
+        varchar purpose "verify | reset"
+        timestamptz expires_at
+    }
+    studio_videos {
+        varchar id PK "UUID"
+        bigint owner_id FK
+        varchar status "UPLOADING … READY | ERROR | CANCELLED"
+        bigint total_bytes
+        bigint received_bytes
+        varchar checksum "SHA-256"
+        text metadata "JSON del formulario de Studio"
+        double duration
+        bigint video_id FK,UK "V6: fila publicada en videos"
     }
     categories {
         bigint id PK
@@ -292,6 +325,8 @@ erDiagram
 | `comment_likes`, `video_likes` | Un like por usuario | US-10, US-11 |
 | `video_views` | Una fila por reproducción → gráficas por fecha | US-11 |
 | `playlists`, `playlist_videos` (V5) | Listas de vídeos de un usuario; las públicas salen en la búsqueda | US-08 |
+| `auth_accounts`, `auth_tokens` (V2) | Fecha de nacimiento, términos, email verificado y tokens de verificación/recuperación | US-01, US-02 |
+| `studio_videos` (V3, V6) | Cola de subida y conversión de Studio; al terminar se publica en `videos` | US-06, US-07 |
 
 ### Convenciones del esquema
 
@@ -357,24 +392,43 @@ Spring Security. Además añadir campos de perfil no afecta al código de autent
 
 ### 🎬 `videos`
 
-- `file_name` / `thumbnail_name` → ruta relativa a `ENV_PROTUBE_STORE_DIR`. `file_name` es único.
+- `file_name` / `thumbnail_name` → ruta relativa a `ENV_PROTUBE_STORE_DIR` (vídeos importados) o ruta absoluta
+  `/api/studio/play/{id}/…` (vídeos publicados desde Studio). `file_name` es único.
 - `view_count` / `like_count` → **contadores cacheados** (ver más abajo).
 - `visibility` y `status` (V4) → quién puede ver el vídeo y en qué punto de su ciclo de vida está:
 
 | `status` | Significado |
 |---|---|
 | `DRAFT` | Borrador, aún no publicado |
-| `SCHEDULED` | Se publicará más adelante |
+| `SCHEDULED` | Se publicará en `publish_at` (V6); el worker de Studio lo pasa a `PUBLISHED` cuando llega la hora |
 | `PUBLISHED` *(por defecto)* | Publicado |
 | `ARCHIVED` | Retirado, ya no se muestra |
 
 | `visibility` | Quién lo ve |
 |---|---|
 | `PUBLIC` *(por defecto)* | Cualquiera (si está `PUBLISHED`) |
+| `UNLISTED` (V6) | Quien tenga el enlace; no sale en catálogo ni búsqueda |
 | `PRIVATE` | Solo su propietario |
 
 > Un vídeo aparece en el catálogo, admite comentarios y se ve en el canal de otros usuarios **solo si**
 > `status = 'PUBLISHED' AND visibility = 'PUBLIC'`. Los vídeos importados quedan así por defecto.
+> Si además `age_restricted = TRUE` (V6), el catálogo solo lo muestra a mayores de edad y a su propietario, y la
+> búsqueda no lo indexa.
+
+#### Vídeos de Studio (V3 + V6)
+
+`studio_videos` es la **cola de subida y conversión** (bytes recibidos, checksum, estado, error de FFmpeg y el JSON
+del formulario). Cuando un vídeo queda `READY`, `StudioPublisher` crea su fila en `videos` y la enlaza con
+`studio_videos.video_id`; cada edición en Studio la sincroniza (título, descripción, visibilidad, estado,
+`publish_at`, 18+, comentarios, idioma, tags y categoría). Así el catálogo, los comentarios, las playlists y la
+búsqueda funcionan igual para vídeos importados y subidos. Detalle en [STUDIO.md](STUDIO.md).
+
+#### `auth_accounts` / `auth_tokens` (V2)
+
+- `auth_accounts`: datos de login que no son del perfil (1:1 con `users`): fecha de nacimiento (edad mínima y
+  contenido 18+), aceptación de términos, email verificado y `session_version` (subirla invalida las sesiones abiertas).
+- `auth_tokens`: tokens de verificación de email y de recuperación de contraseña. Solo se guarda su **hash**
+  SHA-256 (`token_hash`), nunca el token, con `purpose` y caducidad.
 
 #### ¿Por qué hay contadores si ya existen `video_views` y `video_likes`?
 
@@ -416,7 +470,7 @@ likes a lo mismo. Quitar el like = borrar la fila.
 - Un usuario crea playlists `PUBLIC` (las ve cualquiera y salen en la búsqueda) o `PRIVATE` (solo él).
 - `playlist_videos` tiene PK `(playlist_id, video_id)`: un vídeo aparece **una vez** por lista. `position` guarda el
   orden (el servicio añade al final con `MAX(position) + 1`).
-- Solo admiten vídeos de `videos`: los de Studio (`studio_videos`) tienen id de texto y la FK no los acepta.
+- Admiten cualquier vídeo de `videos`, también los subidos con Studio una vez publicados (V6).
 - Quien no es el propietario solo ve los vídeos `PUBLISHED` + `PUBLIC` de la lista.
 
 ### 📊 `video_views`
@@ -451,7 +505,10 @@ La BD **rechaza** con un error de constraint cualquier dato que no siga estas re
 | Contadores nunca negativos | Likes / quitar like | `chk_videos_view_count_positive`, `chk_videos_like_count_positive`, `chk_comments_like_count_positive` |
 | `width`, `height` > 0 y `duration_sec` ≥ 0 (o `NULL`) | Subida e importación | `chk_videos_width_positive`, `chk_videos_height_positive`, `chk_videos_duration_positive` |
 | Comentario no vacío | Comentar / responder | `chk_comments_content_not_blank` |
-| `videos.visibility` solo `PUBLIC`/`PRIVATE`; `videos.status` solo `DRAFT`/`SCHEDULED`/`PUBLISHED`/`ARCHIVED` | Enums Java, Studio, canal | `chk_videos_visibility`, `chk_videos_status` |
+| `videos.visibility` solo `PUBLIC`/`PRIVATE`/`UNLISTED`; `videos.status` solo `DRAFT`/`SCHEDULED`/`PUBLISHED`/`ARCHIVED` | Enums Java, Studio, canal | `chk_videos_visibility`, `chk_videos_status` |
+| Un vídeo `SCHEDULED` siempre tiene `publish_at` | `StudioPublisher` | `chk_videos_scheduled_has_date` |
+| Los vídeos de Studio solo llegan a `videos` cuando están `READY`, y se re-sincronizan al editarlos | `StudioPublisher` (worker y edición) | ⚠️ **Solo el servicio** |
+| Contenido 18+ solo para mayores de edad y su propietario | `CatalogController`, `SearchIndexer` | ⚠️ **Solo el servicio** |
 | Catálogo, comentarios y canal ajeno solo con vídeos `PUBLISHED` + `PUBLIC` | `CatalogController`, `CommentService`, `ChannelVideoService` | ⚠️ **Solo el servicio** |
 | Playlist con título no vacío y visibilidad `PUBLIC`/`PRIVATE` | `PlaylistService` | `chk_playlists_title_not_blank`, `chk_playlists_visibility` |
 | Solo el propietario modifica una playlist; las `PRIVATE` solo las ve él | `PlaylistService` | ⚠️ **Solo el servicio** |
@@ -495,6 +552,7 @@ flowchart TD
 | Un usuario | Se borran su perfil, sus playlists, sus vídeos, comentarios y likes. Sus visualizaciones quedan como anónimas |
 | Un vídeo | Se borran sus comentarios, likes, vistas, enlaces a tags/categorías y su presencia en playlists. **Los tags, categorías y playlists se mantienen** |
 | Una playlist | Se borran sus filas de `playlist_videos` (los vídeos no) |
+| Un vídeo publicado desde Studio | Su `studio_videos.video_id` pasa a `NULL` (la subida se conserva) |
 | Un comentario | Se borran sus respuestas y sus likes |
 | Un tag o categoría | Desaparece de todos los vídeos (el vídeo no se borra) |
 
@@ -522,6 +580,9 @@ Postgres crea índices automáticos para las `PRIMARY KEY` y los `UNIQUE`. El re
 | `ux_users_provider` | `users(auth_provider, provider_id)` | Login con Google (y evita duplicados) |
 | `ix_playlists_owner` (V5) | `playlists(owner_id, created_at DESC)` | "Tus playlists", más nuevas primero |
 | `ix_playlist_videos_video` (V5) | `playlist_videos(video_id)` | Borrar un vídeo (cascada) |
+| `ix_videos_scheduled` (V6, **parcial**) | `videos(publish_at) WHERE status = 'SCHEDULED'` | Encontrar cada 30 s los programados que ya toca publicar; solo indexa esas filas |
+| `ix_auth_tokens_user` (V2) | `auth_tokens(user_id)` | Tokens de un usuario, borrado en cascada |
+| `ix_studio_owner`, `ix_studio_status` (V3) | `studio_videos(owner_id)`, `(status, created_at)` | "Mis vídeos" en Studio y la cola del worker |
 
 > `user_profiles.user_id` no necesita índice propio: al ser la PK ya lo tiene.
 >
@@ -663,10 +724,9 @@ y regenerar en cualquier momento. Por eso el contenedor `mongo_search` del `comp
 | `SearchIndexer` | Al arrancar, cada `pro_tube.search.reindex-ms` (60 s) y tras cada cambio en una playlist. Construye colecciones `*_tmp` y las renombra (cambio atómico: nunca se ven a medias). Si Mongo está caído, lo registra y reintenta |
 
 **Qué se indexa:**
-- Vídeos de `videos` con `status = 'PUBLISHED' AND visibility = 'PUBLIC'` (V4), incluidos los importados y los de prueba.
-- Vídeos de Studio (`studio_videos`) **si la tabla existe** (llega con la V3 de la rama de Studio): los `READY`,
-  públicos, que no son borrador, cuya fecha de publicación ya ha pasado y que no son 18+ (la misma regla que el
-  catálogo de Studio). Un vídeo programado aparece en la búsqueda como mucho 60 s después de su hora.
+- Vídeos de `videos` con `status = 'PUBLISHED' AND visibility = 'PUBLIC' AND age_restricted = FALSE`: importados,
+  de prueba y publicados desde Studio (V6). Un vídeo programado aparece como mucho ~90 s después de su hora
+  (30 s del worker que lo publica + 60 s del reindexado).
 - Playlists `PUBLIC`.
 
 **API:**
