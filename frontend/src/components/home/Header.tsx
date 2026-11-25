@@ -1,6 +1,7 @@
 import { Icon } from './Icon';
 import type { SessionUser } from '../../auth/api';
 import { SearchBox } from '../../search/SearchBox';
+import { getEnv } from '../../utils/Env';
 
 interface HeaderProps {
   onNotifications?: () => void;
@@ -13,10 +14,11 @@ interface HeaderProps {
 }
 
 export function Header({ onSearch, searchValue, onAction, user, sessionLoading, onLogout, onNotifications }: HeaderProps) {
+  const baseUrl = getEnv().BASE_URL;
   return (
     <header className="site-header">
-      <a className="brand" href={import.meta.env.BASE_URL} aria-label="protube: volver al inicio y refrescar">
-        <img src={`${import.meta.env.BASE_URL}protube-imago-removebg-preview.png`} alt="" />
+      <a className="brand" href={baseUrl} aria-label="protube: volver al inicio y refrescar">
+        <img src={`${baseUrl}protube-imago-removebg-preview.png`} alt="" />
         <span>
           protube<span className="brand-dot">.</span>
         </span>

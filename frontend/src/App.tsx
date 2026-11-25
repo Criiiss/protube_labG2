@@ -10,6 +10,7 @@ import { CategoryBar } from './components/home/CategoryBar';
 import { VideoCard } from './components/home/VideoCard';
 import type { VideoAction } from './components/home/VideoCard';
 import { VideoCarousel } from './components/home/VideoCarousel';
+import { VideoPlayer } from './videos/VideoPlayer';
 
 import { categories, demoVideos } from './data/home';
 import type { Video } from './data/home';
@@ -19,6 +20,8 @@ import { AuthPage } from './auth/AuthPage';
 import { useLibrary } from './home/useLibrary';
 import { useCatalog } from './home/useCatalog';
 import { ProfilePage } from './profile/ProfilePage';
+import { PublicProfilePage } from './profile/PublicProfilePage';
+import { getEnv } from './utils/Env';
 import { SearchPage } from './search/SearchPage';
 import { defaultFilters, searchHash } from './search/searchApi';
 import { PlaylistDialog } from './playlists/PlaylistDialog';
@@ -27,7 +30,15 @@ import { StudioPage } from './studio/StudioPage';
 import { WatchPage } from './studio/WatchPage';
 import { useStudioNotifications } from './studio/useStudioNotifications';
 
+/** Studio uploads are played by the Studio watch page; catalogue videos by VideoPlayer. */
+const isStudioVideo = (video: Video) => video.thumbnail.startsWith('/api/studio/play/');
+const watchHash = (video: Video, sampleMode: boolean) =>
+  isStudioVideo(video)
+    ? `/watch?id=${encodeURIComponent(video.id)}`
+    : `/watch?video=${encodeURIComponent(video.id)}${sampleMode ? '&sample=1' : ''}`;
+
 function App() {
+  const env = getEnv();
   const [expanded, setExpanded] = useState(false);
   const [playlistVideo, setPlaylistVideo] = useState<Video | null>(null);
   const [searchRun, setSearchRun] = useState(0); // bumps to reload results when the same search is submitted again
@@ -39,34 +50,64 @@ function App() {
   );
   const [limit, setLimit] = useState(12);
   const [sort, setSort] = useState('recommended');
+
   const session = useSession();
+  const demoUser = {
+    id: 1,
+    username: 'usuario_demo',
+    displayName: 'Usuario Demo',
+    avatarUrl: null,
+  };
   const { library, toggle, visit } = useLibrary(session.user?.id);
+
   const route = location.slice(1).split('?')[0] || '/';
   const params = new URLSearchParams(location.split('?')[1]);
   const catalog = useCatalog(route, session.user?.id);
   const showStudioNotifications = useStudioNotifications(session.user?.id, setNotice);
+
+  const publicProfileUsername = params.get('username');
+  const selectedVideoId = params.get('video');
+  const studioVideoId = params.get('id');
+
+  const isPublicProfilePage = route === '/profile-public' && Boolean(publicProfileUsername);
+  const isWatchPage = route === '/watch' && Boolean(selectedVideoId);
+  const isStudioWatchPage = route === '/watch' && /^[a-f0-9-]{36}$/.test(studioVideoId || '');
+
   useEffect(() => {
     if (route === '/studio' && !session.loading && !session.user) window.location.hash = '/login?next=studio';
   }, [route, session.loading, session.user]);
+
   useEffect(() => {
     const update = () => {
-      setLocation(window.location.hash || '#/');
+      const nextLocation = window.location.hash || '#/';
+
+      setLocation(nextLocation);
+      setSampleMode(new URLSearchParams(nextLocation.split('?')[1]).get('sample') === '1');
       setLimit(12);
+
       window.scrollTo(0, 0);
     };
+
     window.addEventListener('hashchange', update);
+
     return () => window.removeEventListener('hashchange', update);
   }, []);
+
   const videos = sampleMode ? demoVideos : catalog.videos;
+
+  const selectedVideo = selectedVideoId ? videos.find((video) => video.id === selectedVideoId) : undefined;
+
   let filtered = videos.filter(
     (video) => !library.hidden.includes(video.id) && (category === 'all' || video.categoryId === category)
   );
+
   const collections: Record<string, string[]> = {
     '/library': library.saved,
     '/later': library.later,
     '/liked': library.liked,
     '/history': library.history,
   };
+
   const names: Record<string, string> = {
     '/library': 'Tu biblioteca',
     '/later': 'Ver más tarde',
@@ -75,49 +116,71 @@ function App() {
     '/subscriptions': 'Tus suscripciones',
     '/channel': params.get('name') || 'Canal',
   };
-  if (collections[route]) filtered = filtered.filter((video) => collections[route].includes(video.id));
-  if (route === '/subscriptions') filtered = filtered.filter((video) => library.subscriptions.includes(video.channel));
-  if (route === '/channel') filtered = filtered.filter((video) => video.channel === params.get('name'));
-  if (route === '/channel' && params.get('video'))
+
+  if (collections[route]) {
+    filtered = filtered.filter((video) => collections[route].includes(video.id));
+  }
+
+  if (route === '/subscriptions') {
+    filtered = filtered.filter((video) => library.subscriptions.includes(video.channel));
+  }
+
+  if (route === '/channel') {
+    filtered = filtered.filter((video) => video.channel === params.get('name'));
+  }
+
+  if (route === '/channel' && params.get('video')) {
     filtered = filtered.filter((video) => video.id === params.get('video'));
-  if (route === '/history') filtered.sort((a, b) => library.history.indexOf(a.id) - library.history.indexOf(b.id));
-  else if (sort === 'popular')
+  }
+
+  if (route === '/history') {
+    filtered.sort((a, b) => library.history.indexOf(a.id) - library.history.indexOf(b.id));
+  } else if (sort === 'popular') {
     filtered.sort((a, b) => (b.viewCount || parseFloat(b.views)) - (a.viewCount || parseFloat(a.views)));
-  else if (sort === 'recent')
-    filtered.sort((a, b) => (b.createdAt || b.id).localeCompare(a.createdAt || a.id, undefined, { numeric: true }));
+  } else if (sort === 'recent') {
+    filtered.sort((a, b) =>
+      (b.createdAt || b.id).localeCompare(a.createdAt || a.id, undefined, {
+        numeric: true,
+      })
+    );
+  }
+
   const selectVideo = (video: Video) => {
-    if (session.user) visit(video.id);
-    if (video.thumbnail.startsWith('/api/studio/play/')) {
-      window.location.hash = `/watch?id=${encodeURIComponent(video.id)}`;
-      return;
+    if (session.user) {
+      visit(video.id);
     }
-    setNotice('La reproducción pertenece a la página de vídeo y aún no está implementada.');
+
+    window.location.hash = watchHash(video, sampleMode);
   };
+
   async function action(type: VideoAction, video: Video) {
     if (type === 'share') {
-      const target = video.thumbnail.startsWith('/api/studio/play/')
-        ? `/watch?id=${encodeURIComponent(video.id)}`
-        : `/channel?name=${encodeURIComponent(video.channel)}&video=${encodeURIComponent(video.id)}${sampleMode ? '&sample=1' : ''}`;
-      const link = `${window.location.origin}${window.location.pathname}#${target}`;
+      const link = `${window.location.origin}${window.location.pathname}#${watchHash(video, sampleMode)}`;
+
       try {
         await navigator.clipboard.writeText(link);
         setNotice('Enlace copiado.');
       } catch {
         setNotice(`Enlace para compartir: ${link}`);
       }
+
       return;
     }
+
     if (!session.user) {
       window.location.hash = '/login';
       return;
     }
+
     if (type === 'playlist') {
       setPlaylistVideo(video);
       return;
     }
+
     toggle(type, type === 'subscriptions' ? video.channel : video.id);
     setNotice('Preferencia actualizada en este navegador.');
   }
+
   const cards = (items: Video[]) => (
     <div className="video-grid">
       {items.map((video) => (
@@ -137,6 +200,7 @@ function App() {
   const authMode = route.slice(1);
 
   const isAuthPage = ['login', 'register', 'forgot', 'reset', 'verify', 'resend', 'google-register'].includes(authMode);
+
   const privatePage = [
     '/profile',
     '/settings',
@@ -147,11 +211,40 @@ function App() {
     '/subscriptions',
     '/playlists',
   ].includes(route);
+
   const showListing = route !== '/' || category !== 'all';
+
   let content: React.ReactNode;
-  if (isAuthPage) content = <AuthPage key={authMode} mode={authMode} onLogin={session.setUser} />;
-  else if (privatePage && session.loading) content = <p role="status">Comprobando tu sesión…</p>;
-  else if (privatePage && !session.user && import.meta.env.VITE_PROFILE_DEMO !== 'true')
+
+  if (isAuthPage) {
+    content = <AuthPage key={authMode} mode={authMode} onLogin={session.setUser} />;
+  } else if (isStudioWatchPage) {
+    content = <WatchPage key={studioVideoId} id={studioVideoId!} />;
+  } else if (isWatchPage) {
+    if (!selectedVideo && !sampleMode && catalog.loading) {
+      content = (
+        <p className="profile-state" role="status">
+          Cargando vídeo...
+        </p>
+      );
+    } else if (!selectedVideo) {
+      content = (
+        <div className="empty-state">
+          <h1>Vídeo no encontrado</h1>
+          <p>El vídeo que buscas no está disponible.</p>
+          <a href="#/">Volver al inicio →</a>
+        </div>
+      );
+    } else {
+      content = <VideoPlayer video={selectedVideo} user={env.PROFILE_DEMO ? demoUser : session.user} />;
+    }
+  } else if (route === '/watch') {
+    content = <p>Vídeo no disponible.</p>;
+  } else if (isPublicProfilePage && publicProfileUsername) {
+    content = <PublicProfilePage username={publicProfileUsername} />;
+  } else if (privatePage && session.loading) {
+    content = <p role="status">Comprobando tu sesión…</p>;
+  } else if (privatePage && !session.user && !env.PROFILE_DEMO) {
     content = (
       <div className="empty-state">
         <h1>Este espacio es para ti.</h1>
@@ -161,10 +254,7 @@ function App() {
         </a>
       </div>
     );
-  else if (
-    (route === '/profile' || route === '/settings') &&
-    (session.user || import.meta.env.VITE_PROFILE_DEMO === 'true')
-  )
+  } else if ((route === '/profile' || route === '/settings') && (session.user || env.PROFILE_DEMO)) {
     content = (
       <ProfilePage
         key={session.user?.id ?? 'demo-profile'}
@@ -172,46 +262,48 @@ function App() {
         onUpdated={() => void session.refresh()}
       />
     );
-  else if (route === '/terms')
+  } else if (route === '/terms') {
     content = (
       <section className="account-page">
         <p className="eyebrow">PROTUBE · PROYECTO ACADÉMICO</p>
-        <h1>Términos de uso</h1>
+        <h1>
+          Términos de uso<span>.</span>
+        </h1>
+
         <div className="auth-card">
           <p>
             Esta versión de protube es un proyecto académico. Al crear una cuenta te comprometes a utilizarla de forma
             responsable, respetar a otros usuarios y compartir únicamente contenido para el que tengas permiso.
           </p>
+
           <p>
             El nombre, usuario, email y fecha de nacimiento se utilizan para gestionar tu cuenta y comprobar la edad
             mínima. La contraseña se almacena cifrada mediante un hash. No compartas tu contraseña con otras personas.
           </p>
+
           <p>
             Las listas de la home se guardan en este navegador. Esta versión no garantiza la conservación de los datos y
             no debe utilizarse para almacenar información sensible.
           </p>
+
           <p>
             Antes de abrir el servicio al público, el responsable del proyecto debe completar y revisar sus condiciones
             y política de privacidad.
           </p>
+
           <a href="#/register">Volver al registro →</a>
         </div>
       </section>
     );
-  else if (route === '/search')
+  } else if (route === '/search') {
     content = <SearchPage key={`${location}#${searchRun}`} params={params} renderVideos={cards} />;
-  else if (route === '/playlists') content = <MyPlaylistsPage />;
-  else if (route === '/playlist')
+  } else if (route === '/playlists') {
+    content = <MyPlaylistsPage />;
+  } else if (route === '/playlist') {
     content = <PlaylistPage key={params.get('id')} id={params.get('id') ?? ''} renderVideos={cards} />;
-  else if (route === '/studio')
+  } else if (route === '/studio') {
     content = session.user ? <StudioPage key={session.user.id} /> : <p role="status">Comprobando tu sesión…</p>;
-  else if (route === '/watch')
-    content = /^[a-f0-9-]{36}$/.test(params.get('id') || '') ? (
-      <WatchPage key={params.get('id')} id={params.get('id')!} />
-    ) : (
-      <p>Vídeo no disponible.</p>
-    );
-  else
+  } else {
     content = (
       <>
         <div className="page-intro">
@@ -222,6 +314,7 @@ function App() {
               <span>.</span>
             </h1>
           </div>
+
           <button
             className="text-button"
             onClick={() => {
@@ -232,13 +325,14 @@ function App() {
             {sampleMode ? 'Ver catálogo real' : 'Explorar contenido de muestra'}
           </button>
         </div>
+
         <div className="catalog-toolbar">
           <label>
             Ordenar por{' '}
             <select
               value={sort}
-              onChange={(e) => {
-                setSort(e.target.value);
+              onChange={(event) => {
+                setSort(event.target.value);
                 setLimit(12);
               }}
             >
@@ -247,16 +341,19 @@ function App() {
               <option value="popular">Más populares</option>
             </select>
           </label>
+
           <span className="demo-label">
             {sampleMode ? 'Contenido de muestra' : 'Catálogo'}
             {session.user ? ' · listas guardadas en este navegador' : ''}
           </span>
         </div>
+
         {catalog.error && !sampleMode && (
           <p className="form-message" role="status">
             {catalog.error}
           </p>
         )}
+
         {catalog.loading && !sampleMode ? (
           <div className="video-grid" aria-label="Cargando vídeos" role="status">
             {Array.from({ length: 6 }, (_, index) => (
@@ -270,7 +367,9 @@ function App() {
         ) : !filtered.length ? (
           <div className="empty-state">
             <h2>Todavía no hay vídeos aquí</h2>
+
             <p>Puedes explorar las muestras mientras llega el contenido real.</p>
+
             {!sampleMode && (
               <button className="primary-button" onClick={() => setSampleMode(true)}>
                 Ver muestras
@@ -280,6 +379,7 @@ function App() {
         ) : showListing || sort !== 'recommended' ? (
           <section aria-label="Resultados">
             {cards(filtered.slice(0, limit))}
+
             {filtered.length > limit && (
               <button className="load-more" onClick={() => setLimit(limit + 12)}>
                 Cargar más vídeos
@@ -289,6 +389,7 @@ function App() {
         ) : (
           <>
             <section aria-label="Vídeos para ti">{cards(filtered.slice(0, 3))}</section>
+
             {filtered.length > 3 && (
               <section className="featured-section">
                 <div className="section-heading">
@@ -296,8 +397,10 @@ function App() {
                     <p className="eyebrow">EN EL PUNTO DE MIRA</p>
                     <h2>Descubre tu siguiente favorito</h2>
                   </div>
+
                   <span>Una selección para explorar</span>
                 </div>
+
                 <VideoCarousel
                   videos={filtered.slice(3, 11)}
                   onSelect={selectVideo}
@@ -305,13 +408,16 @@ function App() {
                 />
               </section>
             )}
+
             {filtered.length > 11 && (
               <section>
                 <div className="section-heading">
                   <h2>Sigue explorando</h2>
                   <span>Siempre hay algo más que ver</span>
                 </div>
+
                 {cards(filtered.slice(11, 17 + Math.max(0, limit - 12)))}
+
                 {filtered.length > 17 + Math.max(0, limit - 12) && (
                   <button className="load-more" onClick={() => setLimit(limit + 12)}>
                     Cargar más vídeos
@@ -323,6 +429,8 @@ function App() {
         )}
       </>
     );
+  }
+
   return (
     <div className={`app-shell ${expanded ? 'menu-expanded' : ''}`}>
       <a
@@ -335,6 +443,7 @@ function App() {
       >
         Saltar al contenido
       </a>
+
       <Header
         onSearch={(q) => {
           const next = searchHash({ ...defaultFilters, q });
@@ -348,27 +457,42 @@ function App() {
         sessionLoading={session.loading}
         onLogout={() => void session.logout().catch((error) => setNotice(error.message))}
       />
+
       <Sidebar
         expanded={expanded}
         onToggle={() => setExpanded(!expanded)}
         subscriptions={session.user ? library.subscriptions : []}
         route={route}
       />
+
       <div className="content-shell">
-        {!isAuthPage && !['/profile', '/settings', '/terms', '/search', '/playlist', '/playlists', '/studio', '/watch'].includes(route) && (
-          <CategoryBar
-            categories={categories}
-            selected={category}
-            onSelect={(value) => {
-              setCategory(value);
-              setLimit(12);
-            }}
-          />
-        )}
+        {!isAuthPage &&
+          ![
+            '/profile',
+            '/settings',
+            '/terms',
+            '/profile-public',
+            '/watch',
+            '/search',
+            '/playlist',
+            '/playlists',
+            '/studio',
+          ].includes(route) && (
+            <CategoryBar
+              categories={categories}
+              selected={category}
+              onSelect={(value) => {
+                setCategory(value);
+                setLimit(12);
+              }}
+            />
+          )}
+
         <main id="main-content" tabIndex={-1}>
           {content}
         </main>
       </div>
+
       {playlistVideo && (
         <PlaylistDialog
           video={playlistVideo}
@@ -378,9 +502,11 @@ function App() {
           }}
         />
       )}
+
       {notice && (
         <div className="notice" role="status">
           <span>{notice}</span>
+
           <button aria-label="Cerrar aviso" onClick={() => setNotice('')}>
             ×
           </button>

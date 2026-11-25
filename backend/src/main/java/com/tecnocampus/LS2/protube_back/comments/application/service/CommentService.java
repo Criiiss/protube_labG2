@@ -1,0 +1,377 @@
+package com.tecnocampus.LS2.protube_back.comments.application.service;
+
+import com.tecnocampus.LS2.protube_back.auth.AuthFailure;
+import com.tecnocampus.LS2.protube_back.comments.adapter.in.web.CommentResponseDTO;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.sql.*;
+import java.util.List;
+
+@Service
+public class CommentService {
+    private final JdbcTemplate jdbcTemplate;
+    public CommentService(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    @Transactional
+    public CommentResponseDTO createComment(Long videoId, Long authId, String content, Long parentId){
+        ensureVideoAvailable(videoId);
+        String normalizedContent = content== null ? "" : content.trim();
+        if (normalizedContent.isBlank()) throw new IllegalArgumentException("Comment content cannot be empty");
+        if (normalizedContent.length() > 2000) throw new IllegalArgumentException("Comment content cannot exceed 2000 characters");
+        if (parentId != null) ensureParentCommentBelongsToVideo(parentId, videoId);
+
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        jdbcTemplate.update(connection -> {
+            PreparedStatement statement = connection.prepareStatement(
+                    """
+                    INSERT INTO comments (
+                        video_id,
+                        author_id,
+                        parent_id,
+                        content,
+                        like_count,
+                        created_at,
+                        updated_at
+                    )
+                    VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """,
+                    Statement.RETURN_GENERATED_KEYS
+            );
+            statement.setLong(1, videoId);
+            statement.setLong(2, authId);
+            if (parentId == null)statement.setNull(3, Types.BIGINT);
+            else statement.setLong(3, parentId);
+            statement.setString(4, normalizedContent);
+            return statement;
+        }, keyHolder);
+        Number generatedId = keyHolder.getKey();
+        if (generatedId == null) throw new IllegalStateException("Failed to retrieve generated comment ID");
+        return jdbcTemplate.queryForObject(
+                """
+                   SELECT
+                       c.id,
+                       c.video_id,
+                       c.author_id,
+                       u.username,
+                       up.display_name,
+                       up.avatar_url,
+                       c.content,
+                       c.parent_id,
+                       c.like_count,
+                       FALSE AS liked_by_current_user,
+                       c.created_at
+                   FROM comments c
+                   INNER JOIN users u ON u.id = c.author_id
+                   LEFT JOIN user_profiles up ON up.user_id = u.id
+                   WHERE c.id = ?
+                   """,
+                (resultSet, rowNumber) -> mapComment(resultSet),
+                generatedId.longValue()
+        );
+    }
+
+
+    public List<CommentResponseDTO> getComments(Long videoId, Long currentUserId) {
+        ensureVideoAvailable(videoId);
+        return jdbcTemplate.query(
+            """
+                    SELECT
+                        c.id,
+                        c.video_id,
+                        c.author_id,
+                        u.username,
+                        up.display_name,
+                        up.avatar_url,
+                        c.content,
+                        c.parent_id,
+                        c.like_count,
+                        c.created_at,
+                        CASE
+                            WHEN ? IS NOT NULL
+                            AND EXISTS (
+                                SELECT 1
+                                FROM comment_likes cl
+                                WHERE cl.comment_id = c.id
+                                    AND cl.user_id = ?
+                            )
+                            THEN TRUE
+                            ELSE FALSE
+                        END AS liked_by_current_user
+                    FROM comments c
+                    INNER JOIN users u ON u.id = c.author_id
+                    LEFT JOIN user_profiles up ON up.user_id = u.id
+                    WHERE c.video_id = ?
+                    ORDER BY c.created_at DESC 
+                    """,
+                    (resultSet, rowNumber) -> mapComment(resultSet),
+                    currentUserId,
+                    currentUserId,
+                    videoId
+        );
+    }
+
+    private void ensureVideoAvailable(Long videoId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM videos WHERE id = ? AND status = 'PUBLISHED' AND visibility = 'PUBLIC'",
+                Integer.class,
+                videoId
+        );
+        if (count == null || count == 0) throw new IllegalArgumentException("Video not found or not available for comments");
+
+    }
+
+    private CommentResponseDTO mapComment(ResultSet resultSet) throws SQLException {
+        return new CommentResponseDTO(
+                resultSet.getLong("id"),
+                resultSet.getLong("video_id"),
+                resultSet.getLong("author_id"),
+                resultSet.getString("username"),
+                resultSet.getString("display_name"),
+                getAvatarUrl(resultSet.getString("avatar_url")),
+                resultSet.getString("content"),
+                getNullableLong(resultSet, "parent_id"),
+                resultSet.getLong("like_count"),
+                resultSet.getBoolean("liked_by_current_user"),
+                resultSet.getTimestamp("created_at").toInstant()
+        );
+    }
+
+    private Long getNullableLong(ResultSet resultSet, String column) throws SQLException {
+        long value = resultSet.getLong(column);
+        return resultSet.wasNull() ? null : value;
+    }
+
+    private String getAvatarUrl(String avatarUrl) {
+        if (avatarUrl == null || avatarUrl.isBlank()) return null;
+        if (avatarUrl.startsWith("http://") || avatarUrl.startsWith("https://") || avatarUrl.startsWith("data:")) return avatarUrl;
+        return "/media/" + avatarUrl;
+    }
+
+    private void ensureParentCommentBelongsToVideo(Long parentId, Long videoId) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM comments
+                WHERE id = ?
+                  AND video_id = ?
+                """,
+                Integer.class,
+                parentId,
+                videoId
+        );
+        if (count == null || count == 0) {
+            throw new AuthFailure(
+                    400,
+                    "parent comment does not belong to the video"
+            );
+        }
+    }
+
+    @Transactional
+    public CommentResponseDTO updateComment(Long videoId, Long commentId, Long authorId, String content) {
+        String normalizedContent = content == null ? "" : content.trim();
+        if (normalizedContent.isBlank()) throw new IllegalArgumentException( "comment content cannot be empty");
+        if (normalizedContent.length() > 2000) throw new IllegalArgumentException("comment content cannot exceed 2000 characters");
+        Integer ownedComment = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM comments
+                WHERE id = ?
+                  AND video_id = ?
+                """,
+                Integer.class,
+                commentId,
+                videoId
+        );
+        if (ownedComment == null || ownedComment == 0) throw new IllegalArgumentException( "The comment does not exist.");
+        Integer isOwner = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM comments
+                WHERE id = ?
+                  AND video_id = ?
+                  AND author_id = ?
+                """,
+                Integer.class,
+                commentId,
+                videoId,
+                authorId
+        );
+        if (isOwner == null || isOwner == 0) throw new AuthFailure(403, "only the author can edit the comment");
+        jdbcTemplate.update(
+                """
+                UPDATE comments
+                SET content = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                  AND video_id = ?
+                  AND author_id = ?
+                """,
+                normalizedContent,
+                commentId,
+                videoId,
+                authorId
+        );
+
+        return getCommentById(commentId, authorId);
+    }
+
+    @Transactional
+    public void deleteComment(Long videoId, Long commentId, Long authorId) {
+        Integer isOwner = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM comments
+                WHERE id = ?
+                  AND video_id = ?
+                  AND author_id = ?
+                """,
+                Integer.class,
+                commentId,
+                videoId,
+                authorId
+        );
+        if (isOwner == null || isOwner == 0) {
+            throw new AuthFailure(403, "only the author can delete the comment.");
+        }
+        int deleted = jdbcTemplate.update(
+                """
+                DELETE FROM comments
+                WHERE id = ?
+                  AND video_id = ?
+                  AND author_id = ?
+                """,
+                commentId,
+                videoId,
+                authorId
+        );
+        if (deleted == 0) throw new AuthFailure(404, "comment not found");
+
+    }
+
+    private CommentResponseDTO getCommentById(Long commentId, Long currentUserId) {
+        return jdbcTemplate.queryForObject(
+                """
+                SELECT
+                    c.id,
+                    c.video_id,
+                    c.author_id,
+                    u.username,
+                    up.display_name,
+                    up.avatar_url,
+                    c.content,
+                    c.parent_id,
+                    c.like_count,
+                    c.created_at,
+                    CASE
+                        WHEN ? IS NOT NULL
+                        AND EXISTS (
+                            SELECT 1
+                            FROM comment_likes cl
+                            WHERE cl.comment_id = c.id
+                                AND cl.user_id = ?
+                        )
+                        THEN TRUE
+                        ELSE FALSE
+                    END AS liked_by_current_user
+                FROM comments c
+                INNER JOIN users u ON u.id = c.author_id
+                LEFT JOIN user_profiles up ON up.user_id = u.id
+                WHERE c.id = ?
+                """,
+                (resultSet, rowNumber) -> mapComment(resultSet),
+                currentUserId,
+                currentUserId,
+                commentId
+        );
+    }
+
+    @Transactional
+    public CommentResponseDTO likeComment( Long videoId,Long commentId,Long userId) {
+        ensureCommentBelongsToVideo(commentId, videoId);
+        int inserted = jdbcTemplate.update(
+                """
+                INSERT INTO comment_likes (
+                    user_id,
+                    comment_id,
+                    created_at
+                )
+                SELECT ?, ?, CURRENT_TIMESTAMP
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM comment_likes
+                    WHERE user_id = ?
+                      AND comment_id = ?
+                )
+                """,
+                userId,
+                commentId,
+                userId,
+                commentId
+        );
+
+        if (inserted > 0) {
+            jdbcTemplate.update(
+                    """
+                    UPDATE comments
+                    SET like_count = like_count + 1
+                    WHERE id = ?
+                    """,
+                    commentId
+            );
+        }
+
+        return getCommentById(commentId, userId);
+    }
+
+    @Transactional
+    public CommentResponseDTO unlikeComment(Long videoId,Long commentId, Long userId) {
+        ensureCommentBelongsToVideo(commentId, videoId);
+
+        int deleted = jdbcTemplate.update(
+                """
+                DELETE FROM comment_likes
+                WHERE user_id = ?
+                  AND comment_id = ?
+                """,
+                userId,
+                commentId
+        );
+
+        if (deleted > 0) {
+            jdbcTemplate.update(
+                    """
+                    UPDATE comments
+                    SET like_count = CASE
+                        WHEN like_count > 0 THEN like_count - 1
+                        ELSE 0
+                    END
+                    WHERE id = ?
+                    """,
+                    commentId
+            );
+        }
+        return getCommentById(commentId, userId);
+    }
+
+    private void ensureCommentBelongsToVideo(Long commentId, Long videoId) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM comments
+                WHERE id = ?
+                  AND video_id = ?
+                """,
+                Integer.class,
+                commentId,
+                videoId
+        );
+        if (count == null || count == 0)  throw new AuthFailure(404, "comment not found");
+    }
+}

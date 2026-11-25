@@ -15,11 +15,11 @@ export class ApiError extends Error {
     super(message);
   }
 }
-export async function api<T>(path: string, body?: unknown, method = body === undefined ? 'GET' : 'POST'): Promise<T> {
+export async function api<T>(path: string, body?: unknown, method?: string): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${getEnv().API_BASE_URL}${path}`, {
-      method,
+      method: method || (body === undefined ? 'GET' : 'POST'),
       credentials: 'include',
       headers: { 'Content-Type': 'application/json', 'X-Protube-Request': '1' },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),

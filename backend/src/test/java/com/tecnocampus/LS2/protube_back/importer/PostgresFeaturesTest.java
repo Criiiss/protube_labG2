@@ -91,12 +91,17 @@ class PostgresFeaturesTest {
         jdbc.update("UPDATE videos SET visibility = 'PRIVATE' WHERE file_name = 'sample-1.mp4'");
         long owner = count("SELECT MIN(id) FROM users");
         jdbc.execute("""
-                CREATE TABLE IF NOT EXISTS studio_videos (id VARCHAR(255) PRIMARY KEY, owner_id BIGINT NOT NULL, status VARCHAR(255) NOT NULL,
-                  metadata TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL, duration DOUBLE PRECISION NOT NULL)""");
-        jdbc.update("INSERT INTO studio_videos VALUES ('up-1', ?, 'READY', ?, now(), 30) ON CONFLICT DO NOTHING", owner,
+                CREATE TABLE IF NOT EXISTS studio_videos (id VARCHAR(255) PRIMARY KEY, owner_id BIGINT NOT NULL,
+                  filename VARCHAR(255) NOT NULL, checksum VARCHAR(64) NOT NULL, total_bytes BIGINT NOT NULL,
+                  received_bytes BIGINT NOT NULL, status VARCHAR(255) NOT NULL, metadata TEXT NOT NULL,
+                  created_at TIMESTAMPTZ NOT NULL, duration DOUBLE PRECISION NOT NULL)""");
+        // studio_videos comes from V3 (Studio); the CREATE above only matters when V3 is absent
+        String insert = """
+                INSERT INTO studio_videos (id, owner_id, filename, checksum, total_bytes, received_bytes, status, metadata, created_at, duration)
+                VALUES (?, ?, 'v.mp4', 'abc', 1, 1, ?, ?, now(), 30) ON CONFLICT DO NOTHING""";
+        jdbc.update(insert, "up-1", owner, "READY",
                 "{\"title\":\"Subido en Studio\",\"tags\":[\"studio\"],\"visibility\":\"PUBLIC\",\"draft\":false,\"publishAt\":null}");
-        jdbc.update("INSERT INTO studio_videos VALUES ('up-2', ?, 'PROCESSING', ?, now(), 30) ON CONFLICT DO NOTHING", owner,
-                "{\"title\":\"Aún no\",\"visibility\":\"PUBLIC\"}");
+        jdbc.update(insert, "up-2", owner, "PROCESSING", "{\"title\":\"Aún no\",\"visibility\":\"PUBLIC\"}");
         var pl = playlists.create(owner, new PlaylistService.NewPlaylist("Mis favoritos", null, "PUBLIC"));
         playlists.create(owner, new PlaylistService.NewPlaylist("Secreta", null, "PRIVATE"));
         playlists.addVideo(owner, pl.id(), jdbc.queryForObject("SELECT id FROM videos WHERE file_name = 'sample-2.mp4'", String.class));

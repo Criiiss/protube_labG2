@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
-import { changeUsername, getMyProfile, removeAvatar, removeBanner, updateProfile } from './profileApi';
+import { changeUsername, getMyProfile, removeAvatar, removeBanner, updatePrivacy, updateProfile } from './profileApi';
 import ProfileEditForm from './ProfileEditForm';
 import ProfileHeader from './ProfileHeader';
 import ProfileStats from './ProfileStats';
+import { ChannelVideoGrid } from '../videos/ChannelVideoGrid';
+import { useChannelVideos } from '../videos/useChannelVideos';
+import type { VideoTab } from '../videos/channelVideosApi';
 import type { MyProfile } from './types';
 
 interface ProfilePageProps {
@@ -10,12 +13,42 @@ interface ProfilePageProps {
   onUpdated: () => void;
 }
 
+const getEmptyTitle = (tab: VideoTab): string => {
+  switch (tab) {
+    case 'published':
+      return 'Todavía no hay vídeos publicados';
+    case 'scheduled':
+      return 'Todavía no hay vídeos programados';
+    case 'archived':
+      return 'Todavía no hay vídeos archivados';
+    case 'drafts':
+      return 'Todavía no hay borradores';
+  }
+};
+
+const getEmptyDescription = (tab: VideoTab): string => {
+  switch (tab) {
+    case 'published':
+      return 'Los vídeos públicos de este canal aparecerán aquí.';
+    case 'scheduled':
+      return 'Los vídeos programados solo serán visibles para ti.';
+    case 'archived':
+      return 'Los vídeos archivados solo serán visibles para ti.';
+    case 'drafts':
+      return 'Tus borradores solo serán visibles para ti.';
+  }
+};
+
 export function ProfilePage({ userId, onUpdated }: ProfilePageProps) {
   const [profile, setProfile] = useState<MyProfile | null>(null);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'videos' | 'analytics'>('videos');
+  const [activeVideoTab, setActiveVideoTab] = useState<VideoTab>('published');
+
+  const channelVideos = useChannelVideos(userId, activeVideoTab, true);
 
   useEffect(() => {
     let active = true;
@@ -83,6 +116,18 @@ export function ProfilePage({ userId, onUpdated }: ProfilePageProps) {
     }
   };
 
+  const savePrivacy = async (data: Parameters<typeof updatePrivacy>[1]) => {
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      const updatedProfile = await updatePrivacy(userId, data);
+      setProfile(updatedProfile);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const saveUsername = async (username: string) => {
     setSaving(true);
     setMessage(null);
@@ -114,6 +159,7 @@ export function ProfilePage({ userId, onUpdated }: ProfilePageProps) {
           saving={saving}
           onSaveProfile={saveProfile}
           onSaveUsername={saveUsername}
+          onSavePrivacy={savePrivacy}
           onRemoveAvatar={handleRemoveAvatar}
           onRemoveBanner={handleRemoveBanner}
           onCancel={() => setEditing(false)}
@@ -122,6 +168,9 @@ export function ProfilePage({ userId, onUpdated }: ProfilePageProps) {
     );
   }
 
+  const isLoadingVideos = channelVideos.loading;
+  const hasVideoError = Boolean(channelVideos.error);
+
   return (
     <section className="profile-page">
       <ProfileHeader profile={profile} isOwner onEdit={() => setEditing(true)} />
@@ -129,23 +178,116 @@ export function ProfilePage({ userId, onUpdated }: ProfilePageProps) {
       <ProfileStats
         stats={{
           subscriptionsCount: 0,
-          videosCount: 0,
+          videosCount: channelVideos.videos.length,
         }}
       />
 
-      <section className="profile-content">
-        <div className="profile-content-heading">
-          <p className="profile-eyebrow">Contenido del canal</p>
-          <h2>Vídeos</h2>
-        </div>
+      <section className="profile-tabs" aria-label="Secciones del perfil">
+        <button
+          type="button"
+          className={`profile-tab${activeTab === 'videos' ? ' profile-tab--active' : ''}`}
+          aria-selected={activeTab === 'videos'}
+          onClick={() => setActiveTab('videos')}
+        >
+          Vídeos publicados
+        </button>
 
-        <div className="profile-empty-content">
-          <span className="profile-empty-icon" aria-hidden="true">
-            ▶
-          </span>
-          <h3>Este canal todavía no tiene vídeos</h3>
-          <p>Cuando publiques vídeos, aparecerán aquí para otros usuarios.</p>
-        </div>
+        <button
+          type="button"
+          className={`profile-tab${activeTab === 'analytics' ? ' profile-tab--active' : ''}`}
+          aria-selected={activeTab === 'analytics'}
+          onClick={() => setActiveTab('analytics')}
+        >
+          Analíticas
+        </button>
+      </section>
+
+      <section className="profile-content">
+        {activeTab === 'videos' ? (
+          <>
+            <div className="profile-content-heading">
+              <p className="profile-eyebrow">Contenido del canal</p>
+              <h2>Vídeos</h2>
+            </div>
+
+            <div className="profile-video-tabs" role="tablist" aria-label="Estado de los vídeos">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeVideoTab === 'published'}
+                className={`profile-video-tab${activeVideoTab === 'published' ? ' profile-video-tab--active' : ''}`}
+                onClick={() => setActiveVideoTab('published')}
+              >
+                Publicados
+              </button>
+
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeVideoTab === 'scheduled'}
+                className={`profile-video-tab${activeVideoTab === 'scheduled' ? ' profile-video-tab--active' : ''}`}
+                onClick={() => setActiveVideoTab('scheduled')}
+              >
+                Programados
+              </button>
+
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeVideoTab === 'archived'}
+                className={`profile-video-tab${activeVideoTab === 'archived' ? ' profile-video-tab--active' : ''}`}
+                onClick={() => setActiveVideoTab('archived')}
+              >
+                Archivados
+              </button>
+
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeVideoTab === 'drafts'}
+                className={`profile-video-tab${activeVideoTab === 'drafts' ? ' profile-video-tab--active' : ''}`}
+                onClick={() => setActiveVideoTab('drafts')}
+              >
+                Borradores
+              </button>
+            </div>
+
+            {isLoadingVideos && (
+              <p className="profile-state" role="status">
+                Cargando vídeos...
+              </p>
+            )}
+
+            {channelVideos.error && (
+              <p className="profile-form-error" role="status">
+                {channelVideos.error}
+              </p>
+            )}
+
+            {!isLoadingVideos && !hasVideoError && (
+              <ChannelVideoGrid
+                videos={channelVideos.videos}
+                emptyTitle={getEmptyTitle(activeVideoTab)}
+                emptyDescription={getEmptyDescription(activeVideoTab)}
+              />
+            )}
+          </>
+        ) : (
+          <>
+            <div className="profile-content-heading">
+              <p className="profile-eyebrow">Rendimiento del canal</p>
+              <h2>Analíticas</h2>
+            </div>
+
+            <div className="profile-empty-content">
+              <span className="profile-empty-icon" aria-hidden="true">
+                ◌
+              </span>
+              <h3>Las analíticas estarán disponibles próximamente</h3>
+              <p>Aquí podrás consultar el rendimiento de tus vídeos.</p>
+            </div>
+          </>
+        )}
       </section>
 
       {message && (

@@ -1,4 +1,4 @@
-import { hasMinimumAge, validatePassword } from './validation';
+import { hasMinimumAge, validatePassword } from '../validation.ts';
 import { TextEncoder } from 'node:util';
 Object.defineProperty(globalThis, 'TextEncoder', { value: TextEncoder });
 describe('Registration validation', () => {
