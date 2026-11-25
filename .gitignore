@@ -1,2 +1,4 @@
 .vscode/
 .idea/
+# Default host folder for the videoGrabber output mounted by docker compose
+/videos/

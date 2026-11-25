@@ -41,7 +41,8 @@ public class CommentService {
                     )
                     VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     """,
-                    Statement.RETURN_GENERATED_KEYS
+                    // Only "id": with RETURN_GENERATED_KEYS PostgreSQL returns every column and getKey() fails
+                    new String[] { "id" }
             );
             statement.setLong(1, videoId);
             statement.setLong(2, authId);
@@ -93,8 +94,8 @@ public class CommentService {
                         c.like_count,
                         c.created_at,
                         CASE
-                            WHEN ? IS NOT NULL
-                            AND EXISTS (
+                            -- with no session the user id is NULL and "= NULL" never matches (PostgreSQL can't type "? IS NOT NULL")
+                            WHEN EXISTS (
                                 SELECT 1
                                 FROM comment_likes cl
                                 WHERE cl.comment_id = c.id
@@ -110,7 +111,6 @@ public class CommentService {
                     ORDER BY c.created_at DESC 
                     """,
                     (resultSet, rowNumber) -> mapComment(resultSet),
-                    currentUserId,
                     currentUserId,
                     videoId
         );
@@ -270,8 +270,7 @@ public class CommentService {
                     c.like_count,
                     c.created_at,
                     CASE
-                        WHEN ? IS NOT NULL
-                        AND EXISTS (
+                        WHEN EXISTS (
                             SELECT 1
                             FROM comment_likes cl
                             WHERE cl.comment_id = c.id
@@ -286,7 +285,6 @@ public class CommentService {
                 WHERE c.id = ?
                 """,
                 (resultSet, rowNumber) -> mapComment(resultSet),
-                currentUserId,
                 currentUserId,
                 commentId
         );

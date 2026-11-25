@@ -22,7 +22,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Runs the real Flyway migrations (V1..V5) on Postgres 16 and exercises the importer, the indexer and playlists. */
+/** Runs the real Flyway migrations on Postgres 16 and exercises the importer, the indexer, playlists and comments. */
 @Testcontainers
 class PostgresFeaturesTest {
     @Container static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16");
@@ -69,6 +69,26 @@ class PostgresFeaturesTest {
         assertThat(count("SELECT COUNT(*) FROM comments WHERE video_id = ?", id)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT display_name FROM user_profiles p JOIN users u ON u.id = p.user_id WHERE u.username = 'fan1'",
                 String.class)).isEqualTo("fan1");
+    }
+
+    @Test void commentsCanBeCreatedOnPostgres() {
+        importer.importSamples();
+        long video = jdbc.queryForObject("SELECT id FROM videos WHERE file_name = 'sample-5.mp4'", Long.class);
+        long author = jdbc.queryForObject("SELECT owner_id FROM videos WHERE id = ?", Long.class, video);
+        var service = new com.tecnocampus.LS2.protube_back.comments.application.service.CommentService(jdbc);
+        var root = service.createComment(video, author, "  Primer comentario ", null);
+        assertThat(root.id()).isPositive();
+        assertThat(root.content()).isEqualTo("Primer comentario");
+        assertThat(service.createComment(video, author, "Respuesta", root.id()).parentId()).isEqualTo(root.id());
+        assertThat(service.getComments(video, null)).hasSize(2).noneMatch(c -> c.likedByCurrentUser()); // anonymous visitor
+        assertThat(service.getComments(video, author)).hasSize(2);
+        var liked = service.likeComment(video, root.id(), author);
+        assertThat(liked.likeCount()).isEqualTo(1);
+        assertThat(liked.likedByCurrentUser()).isTrue();
+        assertThat(service.unlikeComment(video, root.id(), author).likeCount()).isZero();
+        assertThat(service.updateComment(video, root.id(), author, "Editado").content()).isEqualTo("Editado");
+        service.deleteComment(video, root.id(), author);
+        assertThat(service.getComments(video, null)).isEmpty(); // the reply goes with its parent (ON DELETE CASCADE)
     }
 
     @Test void importsSamplesOnce() {

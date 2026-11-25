@@ -698,6 +698,11 @@ flowchart LR
 | `Schema-validation: missing column [...]` | La entidad JPA no coincide con el SQL | Ajustar la entidad o crear una migración |
 | `violates check constraint "chk_..."` | Dato que no cumple una regla | Ver [reglas del backend](#5-reglas-que-el-backend-debe-cumplir) |
 | `duplicate key value violates unique constraint` | Email, username, tag… repetido | Comprobar si ya existe antes / reutilizarlo |
+| `The getKey method should only be used when a single key is returned` | `prepareStatement(sql, RETURN_GENERATED_KEYS)`: PostgreSQL devuelve **todas** las columnas | `prepareStatement(sql, new String[] { "id" })` o `INSERT … RETURNING id` |
+| `could not determine data type of parameter $1` | Un `?` sin contexto de tipo, p. ej. `? IS NULL` con valor `null` | Quitar la comprobación (`col = NULL` nunca coincide) o hacer `CAST(? AS BIGINT)` |
+
+> ⚠️ H2 acepta ambos casos, así que **un test en H2 no garantiza que funcione en PostgreSQL**. Para SQL nuevo, prueba
+> también con Postgres real (Testcontainers, como `PostgresFeaturesTest` o `StudioIntegrationTest`).
 
 ---
 
