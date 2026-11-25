@@ -28,6 +28,16 @@ services:
     ports:
       - "27017:27017"
 
+  # Test mail server: catches the registration / password emails; read them at http://localhost:8025.
+  # In a real deployment point ENV_PROTUBE_SMTP_* to a real SMTP server instead.
+  mail:
+    image: axllent/mailpit:v1.21
+    container_name: protube_mail
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
   # Backend + frontend + FFmpeg (Studio conversions and thumbnails). Flyway migrates the db at startup.
   app:
     build:
@@ -40,6 +50,8 @@ services:
         condition: service_healthy
       search:
         condition: service_started
+      mail:
+        condition: service_started
     environment:
       ENV_PROTUBE_DB_HOST: db
       ENV_PROTUBE_DB: ${ENV_PROTUBE_DB:-postgres}
@@ -51,6 +63,13 @@ services:
       ENV_PROTUBE_GOOGLE_CLIENT_ID: ${ENV_PROTUBE_GOOGLE_CLIENT_ID:-}
       ENV_PROTUBE_GOOGLE_CLIENT_SECRET: ${ENV_PROTUBE_GOOGLE_CLIENT_SECRET:-}
       ENV_PROTUBE_SAMPLE_VIDEOS: ${ENV_PROTUBE_SAMPLE_VIDEOS:-true}
+      ENV_PROTUBE_SMTP_HOST: ${ENV_PROTUBE_SMTP_HOST:-mail}
+      ENV_PROTUBE_SMTP_PORT: ${ENV_PROTUBE_SMTP_PORT:-1025}
+      ENV_PROTUBE_SMTP_USER: ${ENV_PROTUBE_SMTP_USER:-}
+      ENV_PROTUBE_SMTP_PASSWORD: ${ENV_PROTUBE_SMTP_PASSWORD:-}
+      ENV_PROTUBE_SMTP_AUTH: ${ENV_PROTUBE_SMTP_AUTH:-false}
+      ENV_PROTUBE_SMTP_TLS: ${ENV_PROTUBE_SMTP_TLS:-false}
+      ENV_PROTUBE_MAIL_FROM: ${ENV_PROTUBE_MAIL_FROM:-no-reply@protube.local}
     ports:
       - "8080:8080"
     volumes:
