@@ -21,7 +21,7 @@ consultarla mientras se programa.
 8. [Importación del videoGrabber](#8-importación-del-videograbber)
 9. [Mapeo a entidades JPA](#9-mapeo-a-entidades-jpa)
 10. [Operaciones habituales (cheatsheet)](#10-operaciones-habituales-cheatsheet)
-11. [Futuro: búsqueda con MongoDB](#11-futuro-búsqueda-con-mongodb)
+11. [Búsqueda con MongoDB (US-08)](#11-búsqueda-con-mongodb-us-08)
 
 ---
 
@@ -65,8 +65,11 @@ Una herramienta que ejecuta scripts SQL **versionados** y en orden. Los scripts 
 
 ```
 backend/src/main/resources/db/migration/
-└── V1__init_schema.sql      ← esquema inicial
-    V2__...sql               ← futuros cambios (nunca editando V1)
+├── V1__init_schema.sql                  ← esquema inicial
+├── V2__authentication.sql               ← auth_accounts, auth_tokens
+├── V3__studio_videos.sql                ← studio_videos (rama flopezm_sprint2, pendiente de merge)
+├── V4__add_video_visibility_status.sql  ← videos.visibility y videos.status
+└── V5__playlists.sql                    ← playlists, playlist_videos
 ```
 
 El nombre sigue el formato `V<número>__<descripción>.sql` (dos guiones bajos).
@@ -138,6 +141,12 @@ flowchart LR
     subgraph ANA["📊 Analytics"]
         video_views
     end
+    subgraph PL["📃 Playlists"]
+        playlists
+        playlist_videos
+    end
+    users --> playlists
+    playlists --- playlist_videos --- videos
     users --- user_profiles
     users --> videos
     videos --- video_categories --- categories
@@ -171,6 +180,9 @@ erDiagram
     videos ||--o{ video_likes : "recibe"
     videos ||--o{ video_views : "registra"
     users |o--o{ video_views : "anónimo si NULL"
+    users ||--o{ playlists : "crea"
+    playlists ||--o{ playlist_videos : "contiene"
+    videos ||--o{ playlist_videos : "aparece en"
 
     users {
         bigint id PK
@@ -204,6 +216,8 @@ erDiagram
         numeric duration_sec
         bigint view_count "contador cacheado"
         bigint like_count "contador cacheado"
+        varchar visibility "PUBLIC | PRIVATE (V4)"
+        varchar status "DRAFT | SCHEDULED | PUBLISHED | ARCHIVED (V4)"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -249,6 +263,21 @@ erDiagram
         bigint user_id FK "NULL = anónimo"
         timestamptz viewed_at
     }
+    playlists {
+        bigint id PK
+        bigint owner_id FK
+        varchar title
+        text description
+        varchar visibility "PUBLIC | PRIVATE"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    playlist_videos {
+        bigint playlist_id PK,FK
+        bigint video_id PK,FK
+        int position "orden dentro de la lista"
+        timestamptz added_at
+    }
 ```
 
 ### Tabla → requisito
@@ -262,6 +291,7 @@ erDiagram
 | `comments` | Comentarios y respuestas en hilo | US-09, US-10 |
 | `comment_likes`, `video_likes` | Un like por usuario | US-10, US-11 |
 | `video_views` | Una fila por reproducción → gráficas por fecha | US-11 |
+| `playlists`, `playlist_videos` (V5) | Listas de vídeos de un usuario; las públicas salen en la búsqueda | US-08 |
 
 ### Convenciones del esquema
 
@@ -329,6 +359,22 @@ Spring Security. Además añadir campos de perfil no afecta al código de autent
 
 - `file_name` / `thumbnail_name` → ruta relativa a `ENV_PROTUBE_STORE_DIR`. `file_name` es único.
 - `view_count` / `like_count` → **contadores cacheados** (ver más abajo).
+- `visibility` y `status` (V4) → quién puede ver el vídeo y en qué punto de su ciclo de vida está:
+
+| `status` | Significado |
+|---|---|
+| `DRAFT` | Borrador, aún no publicado |
+| `SCHEDULED` | Se publicará más adelante |
+| `PUBLISHED` *(por defecto)* | Publicado |
+| `ARCHIVED` | Retirado, ya no se muestra |
+
+| `visibility` | Quién lo ve |
+|---|---|
+| `PUBLIC` *(por defecto)* | Cualquiera (si está `PUBLISHED`) |
+| `PRIVATE` | Solo su propietario |
+
+> Un vídeo aparece en el catálogo, admite comentarios y se ve en el canal de otros usuarios **solo si**
+> `status = 'PUBLISHED' AND visibility = 'PUBLIC'`. Los vídeos importados quedan así por defecto.
 
 #### ¿Por qué hay contadores si ya existen `video_views` y `video_likes`?
 
@@ -365,6 +411,14 @@ flowchart TD
 La clave primaria es `(user_id, video_id)` / `(user_id, comment_id)`: la BD **impide** que un usuario dé dos
 likes a lo mismo. Quitar el like = borrar la fila.
 
+### 📃 `playlists` / `playlist_videos` (V5)
+
+- Un usuario crea playlists `PUBLIC` (las ve cualquiera y salen en la búsqueda) o `PRIVATE` (solo él).
+- `playlist_videos` tiene PK `(playlist_id, video_id)`: un vídeo aparece **una vez** por lista. `position` guarda el
+  orden (el servicio añade al final con `MAX(position) + 1`).
+- Solo admiten vídeos de `videos`: los de Studio (`studio_videos`) tienen id de texto y la FK no los acepta.
+- Quien no es el propietario solo ve los vídeos `PUBLISHED` + `PUBLIC` de la lista.
+
 ### 📊 `video_views`
 
 Una fila por reproducción. `user_id` es `NULL` si quien mira no ha iniciado sesión. Ejemplo de consulta para
@@ -397,6 +451,11 @@ La BD **rechaza** con un error de constraint cualquier dato que no siga estas re
 | Contadores nunca negativos | Likes / quitar like | `chk_videos_view_count_positive`, `chk_videos_like_count_positive`, `chk_comments_like_count_positive` |
 | `width`, `height` > 0 y `duration_sec` ≥ 0 (o `NULL`) | Subida e importación | `chk_videos_width_positive`, `chk_videos_height_positive`, `chk_videos_duration_positive` |
 | Comentario no vacío | Comentar / responder | `chk_comments_content_not_blank` |
+| `videos.visibility` solo `PUBLIC`/`PRIVATE`; `videos.status` solo `DRAFT`/`SCHEDULED`/`PUBLISHED`/`ARCHIVED` | Enums Java, Studio, canal | `chk_videos_visibility`, `chk_videos_status` |
+| Catálogo, comentarios y canal ajeno solo con vídeos `PUBLISHED` + `PUBLIC` | `CatalogController`, `CommentService`, `ChannelVideoService` | ⚠️ **Solo el servicio** |
+| Playlist con título no vacío y visibilidad `PUBLIC`/`PRIVATE` | `PlaylistService` | `chk_playlists_title_not_blank`, `chk_playlists_visibility` |
+| Solo el propietario modifica una playlist; las `PRIVATE` solo las ve él | `PlaylistService` | ⚠️ **Solo el servicio** |
+| Un vídeo una sola vez por playlist | `PlaylistService` (`ON CONFLICT DO NOTHING`) | PK `(playlist_id, video_id)` |
 | `username`, `email` y `file_name` únicos | Registro, subida, importador | `UNIQUE` |
 | Una respuesta debe ser del **mismo vídeo** que su padre | Servicio de comentarios | ⚠️ **Solo el servicio** (no la BD) |
 
@@ -421,7 +480,7 @@ UPDATE videos SET like_count = like_count + 1 WHERE id = :videoId;
 
 ```mermaid
 flowchart TD
-    U["🗑️ DELETE user"] --> P["user_profiles del usuario → se borra"]
+    U["🗑️ DELETE user"] --> P["user_profiles y playlists del usuario → se borran"]
     U --> V["videos del usuario → se borran"]
     U --> C["comments del usuario → se borran"]
     U --> L["video_likes / comment_likes del usuario → se borran"]
@@ -433,8 +492,9 @@ flowchart TD
 
 | Se borra… | Efecto |
 |---|---|
-| Un usuario | Se borran su perfil, sus vídeos, comentarios y likes. Sus visualizaciones quedan como anónimas |
-| Un vídeo | Se borran sus comentarios, likes, vistas y enlaces a tags/categorías. **Los tags y categorías se mantienen** |
+| Un usuario | Se borran su perfil, sus playlists, sus vídeos, comentarios y likes. Sus visualizaciones quedan como anónimas |
+| Un vídeo | Se borran sus comentarios, likes, vistas, enlaces a tags/categorías y su presencia en playlists. **Los tags, categorías y playlists se mantienen** |
+| Una playlist | Se borran sus filas de `playlist_videos` (los vídeos no) |
 | Un comentario | Se borran sus respuestas y sus likes |
 | Un tag o categoría | Desaparece de todos los vídeos (el vídeo no se borra) |
 
@@ -444,11 +504,11 @@ flowchart TD
 
 ## 7. Índices y para qué sirven
 
-Postgres crea índices automáticos para las `PRIMARY KEY` y los `UNIQUE`. El resto se crean a mano en V1:
+Postgres crea índices automáticos para las `PRIMARY KEY` y los `UNIQUE`. El resto se crean a mano en las migraciones:
 
 | Índice | Columnas | Acelera… |
 |---|---|---|
-| `ix_videos_owner` | `videos(owner_id)` | "Vídeos de este usuario", borrados en cascada |
+| `ix_videos_owner_status_created` (V4) | `videos(owner_id, status, created_at DESC)` | "Vídeos publicados de este canal, más nuevos primero" y borrados en cascada. Sustituye a `ix_videos_owner` (V1), que se borra por redundante |
 | `ix_videos_created_at` | `videos(created_at DESC)` | Listado del catálogo, más nuevos primero |
 | `ix_video_categories_category` | `video_categories(category_id)` | "Vídeos de esta categoría" |
 | `ix_video_tags_tag` | `video_tags(tag_id)` | "Vídeos con este tag" |
@@ -460,6 +520,8 @@ Postgres crea índices automáticos para las `PRIMARY KEY` y los `UNIQUE`. El re
 | `ix_video_views_video_date` | `video_views(video_id, viewed_at)` | Gráficas de vistas por día |
 | `ix_video_views_user` | `video_views(user_id)` | Historial de un usuario, borrado de usuario |
 | `ux_users_provider` | `users(auth_provider, provider_id)` | Login con Google (y evita duplicados) |
+| `ix_playlists_owner` (V5) | `playlists(owner_id, created_at DESC)` | "Tus playlists", más nuevas primero |
+| `ix_playlist_videos_video` (V5) | `playlist_videos(video_id)` | Borrar un vídeo (cascada) |
 
 > `user_profiles.user_id` no necesita índice propio: al ser la PK ya lo tiene.
 >
@@ -470,7 +532,10 @@ Postgres crea índices automáticos para las `PRIMARY KEY` y los `UNIQUE`. El re
 
 ## 8. Importación del videoGrabber
 
-Al arrancar, el importador lee cada `<id>.json` de `ENV_PROTUBE_STORE_DIR` y lo reparte así:
+Al arrancar con perfil `prod`, `AppStartupRunner` llama a `VideoImporter`, que lee cada `<id>.json` de
+`ENV_PROTUBE_STORE_DIR` y lo reparte así (cada vídeo en **una transacción**: o se guarda entero o nada). Los ya
+importados (mismo `file_name`) se saltan, así que reiniciar no duplica nada; un JSON roto se registra en el log y
+se salta.
 
 ```mermaid
 flowchart LR
@@ -499,8 +564,14 @@ flowchart LR
 | `meta.comments[].timestamp` | `comments.created_at` | |
 | `meta.channel_follower_count` | — | No se guarda (no hay suscripciones en el MVP) |
 
-> 💡 El `username` es único entre **todos** los usuarios: si un canal importado se llama igual que alguien que
-> se registra después, chocarán. El importador debería añadir un prefijo (p. ej. `yt_<nombre>`).
+> 💡 El `username` es único entre **todos** los usuarios. Si el nombre del canal ya pertenece a una cuenta real
+> (`LOCAL`/`GOOGLE`), el importador usa `yt_<nombre>`. Si ya existe como `IMPORTED`, lo reutiliza.
+
+**Vídeos de prueba:** con `pro_tube.sample_videos=true` (variable `ENV_PROTUBE_SAMPLE_VIDEOS`, por defecto `true`) se
+importan además los 24 vídeos de `samples/sample-videos.json` (`file_name = sample-N.mp4`, sin fichero real) como
+canales `IMPORTED`. Son filas normales de Postgres: aparecen en el catálogo, se pueden buscar, comentar y añadir a
+playlists. Para no cargarlos: `ENV_PROTUBE_SAMPLE_VIDEOS=false` (los ya importados hay que borrarlos a mano:
+`DELETE FROM videos WHERE file_name LIKE 'sample-%';`).
 
 ---
 
@@ -569,15 +640,55 @@ flowchart LR
 
 ---
 
-## 11. Futuro: búsqueda con MongoDB
+## 11. Búsqueda con MongoDB (US-08)
 
 ```mermaid
 flowchart LR
-    BE["☕ Backend"] -->|escribe| PG[("🐘 PostgreSQL<br/>fuente de verdad")]
-    BE -->|sincroniza al crear/editar vídeo| MG[("🍃 MongoDB<br/>índice de búsqueda")]
-    S["🔎 Búsqueda"] --> MG
-    MG -->|ids de vídeos| BE
+    GR["📄 JSON del videoGrabber<br/>+ samples/sample-videos.json"] -->|"al arrancar:<br/>VideoImporter"| PG
+    PG[("🐘 PostgreSQL<br/>fuente de verdad")] -->|"al arrancar, cada 60 s y tras<br/>cambiar una playlist"| IX["⏱️ SearchIndexer"]
+    IX -->|"reconstruye entero"| MG[("🍃 MongoDB<br/>search_videos<br/>search_playlists")]
+    FE["🔎 Buscador (frontend)"] -->|"GET /api/search<br/>GET /api/search/suggest"| SC["☕ SearchController"]
+    SC --> MG
 ```
 
-PostgreSQL sigue siendo la **fuente de verdad**. MongoDB sería solo un índice de lectura (título, descripción,
-tags, categorías) que se actualiza cuando se crea o edita un vídeo. **No requiere cambiar este esquema.**
+PostgreSQL sigue siendo la **fuente de verdad**: MongoDB solo guarda una **copia de lectura** que se puede borrar
+y regenerar en cualquier momento. Por eso el contenedor `mongo_search` del `compose.yaml` no tiene volumen.
+
+| Pieza | Qué hace |
+|---|---|
+| `search_videos` | Un documento por vídeo: `title`, `channel`, `tags`, `description`, `durationSec`, `views`, `createdAt`, copias normalizadas (minúsculas, sin tildes) `titleNorm`/`channelNorm` y `terms` (palabras de 3+ letras, para corregir erratas) |
+| `search_playlists` | Una por playlist **pública**: `title`, `owner`, `description`, `videoCount`, `createdAt`, `terms` |
+| Índices de texto (idioma `spanish`) | Vídeos: título 10 · tags 5 · canal 3 · descripción 1. Playlists: título 10 · propietario 3 · descripción 1. Ignoran tildes y mayúsculas y entienden plurales (`guitarras` → `guitarra`) |
+| Corrección de erratas | Si la búsqueda no da **nada**, cada palabra se cambia por la más parecida del vocabulario (`terms`): completa palabras cortadas (`guit` → `guitarra`), y admite 1 error en palabras de 4-7 letras y 2 en las de 8+ (letra cambiada, de más, de menos o dos letras intercambiadas). La respuesta lleva `approximate: true` y `correctedQuery` |
+| `SearchIndexer` | Al arrancar, cada `pro_tube.search.reindex-ms` (60 s) y tras cada cambio en una playlist. Construye colecciones `*_tmp` y las renombra (cambio atómico: nunca se ven a medias). Si Mongo está caído, lo registra y reintenta |
+
+**Qué se indexa:**
+- Vídeos de `videos` con `status = 'PUBLISHED' AND visibility = 'PUBLIC'` (V4), incluidos los importados y los de prueba.
+- Vídeos de Studio (`studio_videos`) **si la tabla existe** (llega con la V3 de la rama de Studio): los `READY`,
+  públicos, que no son borrador, cuya fecha de publicación ya ha pasado y que no son 18+ (la misma regla que el
+  catálogo de Studio). Un vídeo programado aparece en la búsqueda como mucho 60 s después de su hora.
+- Playlists `PUBLIC`.
+
+**API:**
+
+| Endpoint | Parámetros | Devuelve |
+|---|---|---|
+| `GET /api/search` | `q`, `type` (`all`/`video`/`channel`/`playlist`), `date` (`any`/`today`/`week`/`month`/`year`), `duration` (`any`/`short` <4 min/`medium` 4-20/`long` >20), `sort` (`relevance`/`date`/`views`), `channel` (nombre exacto), `page`, `size` (máx. 48) | `videos`, `videoTotal`, `channels` (nombre, nº de vídeos, visualizaciones), `channelTotal`, `playlists` (id, título, propietario, nº de vídeos), `playlistTotal`, `hasMore`, `approximate`, `correctedQuery` |
+| `GET /api/search/suggest` | `q` | Hasta 8 títulos y canales con una palabra que empieza por `q` |
+| `GET /api/playlists/mine?videoId=` | — (sesión) | Mis playlists, con `hasVideo` para ese vídeo |
+| `POST /api/playlists` | `{title, description, visibility}` (sesión) | La playlist creada |
+| `GET /api/playlists/{id}` | — | La playlist y sus vídeos (las privadas, solo su propietario) |
+| `DELETE /api/playlists/{id}` | — (sesión, propietario) | Borra la playlist |
+| `POST /api/playlists/{id}/videos` / `DELETE /api/playlists/{id}/videos/{videoId}` | `{videoId}` (sesión, propietario) | Añade o quita un vídeo |
+
+Con `type=all`, la primera página de una búsqueda con texto incluye además hasta 4 canales y 4 playlists. Las
+peticiones que modifican playlists necesitan la cabecera `X-Protube-Request: 1` (protección CSRF de `AuthGuard`).
+
+Un valor desconocido en un filtro se trata como el valor por defecto, y `q` vacío devuelve todo: la búsqueda nunca
+da error por la entrada. Si Mongo no responde, la API devuelve **503** con un mensaje.
+
+**Configuración:** `ENV_PROTUBE_MONGO_URI` (por defecto `mongodb://localhost:27017/protube`). Levantar Mongo con
+`docker compose up -d search`.
+
+> ⚠️ El importador, las playlists y la búsqueda con datos necesitan el perfil `prod` (Postgres con Flyway). Con
+> `dev` (H2) no existen esas tablas: la app arranca, pero la búsqueda sale vacía y las playlists dan error.

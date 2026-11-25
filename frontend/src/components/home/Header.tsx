@@ -1,19 +1,17 @@
-import { useRef, useState } from 'react';
 import { Icon } from './Icon';
 import type { SessionUser } from '../../auth/api';
+import { SearchBox } from '../../search/SearchBox';
 
 interface HeaderProps {
   onSearch: (query: string) => void;
+  searchValue?: string;
   onAction: (message: string) => void;
   user?: SessionUser | null;
   sessionLoading?: boolean;
   onLogout?: () => void;
 }
 
-export function Header({ onSearch, onAction, user, sessionLoading, onLogout }: HeaderProps) {
-  const [query, setQuery] = useState('');
-  const [pinned, setPinned] = useState(false);
-  const input = useRef<HTMLInputElement>(null);
+export function Header({ onSearch, searchValue, onAction, user, sessionLoading, onLogout }: HeaderProps) {
   return (
     <header className="site-header">
       <a className="brand" href={import.meta.env.BASE_URL} aria-label="protube: volver al inicio y refrescar">
@@ -23,33 +21,7 @@ export function Header({ onSearch, onAction, user, sessionLoading, onLogout }: H
         </span>
       </a>
       <div className="search-zone">
-        <form
-          className={`search-shell ${pinned || query ? 'is-open' : ''}`}
-          role="search"
-          onSubmit={(event) => {
-            event.preventDefault();
-            setPinned(true);
-            input.current?.focus();
-            onSearch(query.trim());
-          }}
-          onFocus={() => setPinned(true)}
-          onClick={() => setPinned(true)}
-        >
-          <input
-            ref={input}
-            type="search"
-            aria-label="Buscar vídeos"
-            placeholder="Busca algo que te inspire"
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              if (!event.target.value) onSearch('');
-            }}
-          />
-          <button type="submit" className="search-button" aria-label="Buscar">
-            <Icon name="search" />
-          </button>
-        </form>
+        <SearchBox onSearch={onSearch} value={searchValue} />
       </div>
       <div className="header-actions">
         <button

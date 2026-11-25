@@ -29,6 +29,8 @@
     </scm>
     <properties>
         <java.version>21</java.version>
+        <!-- 1.19 (Spring Boot 3.3 default) can't talk to Docker Engine 29+ -->
+        <testcontainers.version>1.21.4</testcontainers.version>
         <frontend-maven-plugin.version>1.15.0</frontend-maven-plugin.version>
         <node.version>v22.12.0</node.version>
         <npm.version>9.2.0</npm.version>
@@ -88,11 +90,31 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
+        <!-- Índice de búsqueda (US-08); Postgres sigue siendo la fuente de verdad -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
 
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>mongodb</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

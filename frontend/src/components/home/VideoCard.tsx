@@ -2,7 +2,7 @@ import type { Video } from '../../data/home';
 import { Icon } from './Icon';
 import { useState } from 'react';
 
-export type VideoAction = 'saved' | 'later' | 'liked' | 'hidden' | 'share' | 'subscriptions';
+export type VideoAction = 'saved' | 'later' | 'liked' | 'hidden' | 'share' | 'subscriptions' | 'playlist';
 export function VideoCard({
   video,
   onSelect,
@@ -60,6 +60,7 @@ export function VideoCard({
                   {(
                     [
                       ['saved', 'Guardar en biblioteca'],
+                      ['playlist', 'Guardar en playlist'],
                       ['later', 'Ver más tarde'],
                       ['liked', 'Me gusta'],
                       ['share', 'Compartir'],

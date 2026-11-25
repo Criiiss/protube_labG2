@@ -14,5 +14,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  # Search index (US-08). Its data is rebuilt from Postgres, so no volume is needed.
+  search:
+    image: mongo:7
+    container_name: mongo_search
+    restart: always
+    ports:
+      - "27017:27017"
+
 volumes:
   postgres_data:

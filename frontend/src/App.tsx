@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import './App.css';
 import './features.css';
 import './profile/profile.css';
+import './search/search.css';
 
 import { Header } from './components/home/Header';
 import { Sidebar } from './components/home/Sidebar';
@@ -18,11 +19,16 @@ import { AuthPage } from './auth/AuthPage';
 import { useLibrary } from './home/useLibrary';
 import { useCatalog } from './home/useCatalog';
 import { ProfilePage } from './profile/ProfilePage';
+import { SearchPage } from './search/SearchPage';
+import { defaultFilters, searchHash } from './search/searchApi';
+import { PlaylistDialog } from './playlists/PlaylistDialog';
+import { MyPlaylistsPage, PlaylistPage } from './playlists/PlaylistPages';
 
 function App() {
   const [expanded, setExpanded] = useState(false);
+  const [playlistVideo, setPlaylistVideo] = useState<Video | null>(null);
+  const [searchRun, setSearchRun] = useState(0); // bumps to reload results when the same search is submitted again
   const [category, setCategory] = useState('all');
-  const [query, setQuery] = useState('');
   const [notice, setNotice] = useState('');
   const [location, setLocation] = useState(window.location.hash || '#/');
   const [sampleMode, setSampleMode] = useState(
@@ -46,10 +52,7 @@ function App() {
   }, []);
   const videos = sampleMode ? demoVideos : catalog.videos;
   let filtered = videos.filter(
-    (video) =>
-      !library.hidden.includes(video.id) &&
-      (category === 'all' || video.categoryId === category) &&
-      `${video.title} ${video.channel}`.toLocaleLowerCase('es').includes(query.toLocaleLowerCase('es'))
+    (video) => !library.hidden.includes(video.id) && (category === 'all' || video.categoryId === category)
   );
   const collections: Record<string, string[]> = {
     '/library': library.saved,
@@ -94,6 +97,10 @@ function App() {
       window.location.hash = '/login';
       return;
     }
+    if (type === 'playlist') {
+      setPlaylistVideo(video);
+      return;
+    }
     toggle(type, type === 'subscriptions' ? video.channel : video.id);
     setNotice('Preferencia actualizada en este navegador.');
   }
@@ -116,10 +123,17 @@ function App() {
   const authMode = route.slice(1);
 
   const isAuthPage = ['login', 'register', 'forgot', 'reset', 'verify', 'resend', 'google-register'].includes(authMode);
-  const privatePage = ['/profile', '/settings', '/library', '/later', '/liked', '/history', '/subscriptions'].includes(
-    route
-  );
-  const showListing = route !== '/' || category !== 'all' || Boolean(query);
+  const privatePage = [
+    '/profile',
+    '/settings',
+    '/library',
+    '/later',
+    '/liked',
+    '/history',
+    '/subscriptions',
+    '/playlists',
+  ].includes(route);
+  const showListing = route !== '/' || category !== 'all';
   let content: React.ReactNode;
   if (isAuthPage) content = <AuthPage key={authMode} mode={authMode} onLogin={session.setUser} />;
   else if (privatePage && session.loading) content = <p role="status">Comprobando tu sesión…</p>;
@@ -170,6 +184,11 @@ function App() {
         </div>
       </section>
     );
+  else if (route === '/search')
+    content = <SearchPage key={`${location}#${searchRun}`} params={params} renderVideos={cards} />;
+  else if (route === '/playlists') content = <MyPlaylistsPage />;
+  else if (route === '/playlist')
+    content = <PlaylistPage key={params.get('id')} id={params.get('id') ?? ''} renderVideos={cards} />;
   else if (route === '/studio')
     content = (
       <div className="empty-state">
@@ -236,12 +255,8 @@ function App() {
           </div>
         ) : !filtered.length ? (
           <div className="empty-state">
-            <h2>{query ? 'No hay coincidencias' : 'Todavía no hay vídeos aquí'}</h2>
-            <p>
-              {query
-                ? 'Prueba otra búsqueda o categoría.'
-                : 'Puedes explorar las muestras mientras llega el contenido real.'}
-            </p>
+            <h2>Todavía no hay vídeos aquí</h2>
+            <p>Puedes explorar las muestras mientras llega el contenido real.</p>
             {!sampleMode && (
               <button className="primary-button" onClick={() => setSampleMode(true)}>
                 Ver muestras
@@ -250,7 +265,6 @@ function App() {
           </div>
         ) : showListing || sort !== 'recommended' ? (
           <section aria-label="Resultados">
-            {query && <h2>Resultados para «{query}»</h2>}
             {cards(filtered.slice(0, limit))}
             {filtered.length > limit && (
               <button className="load-more" onClick={() => setLimit(limit + 12)}>
@@ -308,11 +322,12 @@ function App() {
         Saltar al contenido
       </a>
       <Header
-        onSearch={(value) => {
-          setQuery(value);
-          setLimit(12);
-          if (route !== '/') window.location.hash = '/';
+        onSearch={(q) => {
+          const next = searchHash({ ...defaultFilters, q });
+          if (window.location.hash === `#${next}`) setSearchRun((run) => run + 1);
+          else window.location.hash = next;
         }}
+        searchValue={route === '/search' ? (params.get('q') ?? '') : ''}
         onAction={setNotice}
         user={session.user}
         sessionLoading={session.loading}
@@ -325,7 +340,7 @@ function App() {
         route={route}
       />
       <div className="content-shell">
-        {!isAuthPage && !['/profile', '/settings', '/terms'].includes(route) && (
+        {!isAuthPage && !['/profile', '/settings', '/terms', '/search', '/playlist', '/playlists'].includes(route) && (
           <CategoryBar
             categories={categories}
             selected={category}
@@ -339,6 +354,15 @@ function App() {
           {content}
         </main>
       </div>
+      {playlistVideo && (
+        <PlaylistDialog
+          video={playlistVideo}
+          onClose={(message) => {
+            setPlaylistVideo(null);
+            if (message) setNotice(message);
+          }}
+        />
+      )}
       {notice && (
         <div className="notice" role="status">
           <span>{notice}</span>

@@ -32,7 +32,7 @@ export function Sidebar({
     'Tu perfil': '/profile',
     Canal: '/profile',
     Historial: '/history',
-    'Listas de reproducción': '/library',
+    'Listas de reproducción': '/playlists',
     'Me gusta': '/liked',
     'Ver más tarde': '/later',
     Interacciones: '/liked',
