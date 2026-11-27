@@ -17,6 +17,7 @@ public class AuthService {
     public record Registration(String name, String username, String email, String password,
         String confirmPassword, LocalDate birthDate, boolean acceptTerms, String captcha) {}
     public record User(Long id, String username, String displayName, String avatarUrl) {}
+    public record Account(String email, boolean emailVerified, String provider){}
     private final SpringDataUserRepository users;
     private final SpringDataProfileRepository profiles;
     private final AuthAccounts accounts;
@@ -104,6 +105,35 @@ public class AuthService {
             account.sessionVersion++;
         } else account.emailVerified = true;
         accounts.save(account); tokens.delete(token);
+    }
+    public Account account(Long id) {
+        var user = users.findById(id).orElseThrow(() -> new AuthFailure(401, "Inicia sesión de nuevo."));
+        boolean verified = accounts.findById(id).map(account -> account.emailVerified).orElse(false);
+        return new Account(user.getEmail(), verified, user.getAuthProvider());
+    }
+    @Transactional
+    public void sendPasswordReset(Long id) {
+        var user = users.findById(id).orElseThrow(() -> new AuthFailure(401, "Inicia sesión de nuevo."));
+        if (!"LOCAL".equals(user.getAuthProvider()))
+            throw new AuthFailure(400, "Entras con Google: la contraseña se cambia en tu cuenta de Google.");
+        sendToken(user, "reset", 1800);
+    }
+    @Transactional
+    public void deleteAccount(Long id, String confirmation) {
+        var user = users.findById(id).orElseThrow(() -> new AuthFailure(401, "Inicia sesión de nuevo."));
+        String typed = confirmation == null ? "" : confirmation;
+        boolean local = "LOCAL".equals(user.getAuthProvider());
+        boolean confirmed = local
+                ? user.getPasswordHash() != null && encoder.matches(typed, user.getPasswordHash())
+                : user.getUsername().equalsIgnoreCase(typed.trim());
+        if (!confirmed) {
+            String message = local ? "La contraseña no es correcta." : "Escribe tu nombre de usuario para confirmar.";
+            throw new AuthFailure(400, message, Map.of("confirmation", message));
+        }
+        entityManager.clear();
+        for (String sql : List.of("DELETE FROM auth_tokens WHERE user_id = ?1", "DELETE FROM auth_accounts WHERE user_id = ?1",
+                "DELETE FROM user_profiles WHERE user_id = ?1", "DELETE FROM users WHERE id = ?1"))
+            entityManager.createNativeQuery(sql).setParameter(1, id).executeUpdate();
     }
     public int version(Long id) { return accounts.findById(id).map(a -> a.sessionVersion).orElse(-1); }
     private static String hash(String value) {

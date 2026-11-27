@@ -29,6 +29,7 @@ import { MyPlaylistsPage, PlaylistPage } from './playlists/PlaylistPages';
 import { StudioPage } from './studio/StudioPage';
 import { WatchPage } from './studio/WatchPage';
 import { useStudioNotifications } from './studio/useStudioNotifications';
+import { SettingsPage } from './settings/SettingsPage';
 
 /** Every catalogue video (imported or published from Studio) plays in VideoPlayer; /watch?id= is Studio's preview. */
 const watchHash = (video: Video) => `/watch?video=${encodeURIComponent(video.id)}`;
@@ -246,7 +247,18 @@ function App() {
         </a>
       </div>
     );
-  } else if ((route === '/profile' || route === '/settings') && (session.user || env.PROFILE_DEMO)) {
+  } else if (route === '/settings' && session.user) {
+    content = (
+      <SettingsPage
+        userId={session.user.id}
+        onLogout={session.logout}
+        onAccountDeleted={() => {
+          session.setUser(null);
+          window.location.hash = '/';
+        }}
+      />
+    );
+  } else if (route === '/profile' && (session.user || env.PROFILE_DEMO)) {
     content = (
       <ProfilePage
         key={session.user?.id ?? 'demo-profile'}
