@@ -46,8 +46,13 @@ public class AppStartupRunner implements ApplicationRunner {
             return;
         }
         int grabbed = importer.importDirectory(rootPath);
-        int samples = env.getProperty("pro_tube.sample_videos", Boolean.class, false) ? importer.importSamples() : 0;
-        LOG.info("Vídeos importados: {} del videoGrabber, {} de prueba", grabbed, samples);
+        if (importer.hasRealVideos()) {
+            int removed = importer.removeSamples();
+            LOG.info("Vídeos importados: {} del videoGrabber ({} de prueba eliminados)", grabbed, removed);
+        } else {
+            int samples = env.getProperty("pro_tube.sample_videos", Boolean.class, false) ? importer.importSamples() : 0;
+            LOG.info("Sin vídeos del videoGrabber en {}: {} vídeos de prueba importados", rootPath, samples);
+        }
         searchIndexer.reindex(); // don't wait for the next scheduled run to make them searchable
     }
 }
