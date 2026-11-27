@@ -17,10 +17,22 @@ describe('profile and channel components', () => {
   });
 
   it('renders channel videos and navigates on selection', () => {
-    render(<ChannelVideoGrid videos={[{
-      id: 'a/b', title: 'Video', channel: 'channel', views: '1', published: 'today',
-      duration: '1:00', categoryId: 'all', thumbnail: '/thumb',
-    }]} />);
+    render(
+      <ChannelVideoGrid
+        videos={[
+          {
+            id: 'a/b',
+            title: 'Video',
+            channel: 'channel',
+            views: '1',
+            published: 'today',
+            duration: '1:00',
+            categoryId: 'all',
+            thumbnail: '/thumb',
+          },
+        ]}
+      />
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Ver Video' }));
     expect(window.location.hash).toContain('/watch?video=a%2Fb');
   });
@@ -32,14 +44,24 @@ describe('profile and channel components', () => {
     const input = document.getElementById('profile-image-avatar') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [new File(['x'], 'bad.gif', { type: 'image/gif' })] } });
     expect(alert).toHaveBeenCalledWith('Selecciona una imagen JPG, PNG o WebP.');
-    fireEvent.change(input, { target: { files: [new File([new Uint8Array(6 * 1024 * 1024)], 'big.png', { type: 'image/png' })] } });
+    fireEvent.change(input, {
+      target: { files: [new File([new Uint8Array(6 * 1024 * 1024)], 'big.png', { type: 'image/png' })] },
+    });
     expect(alert).toHaveBeenCalledWith('La imagen no puede superar los 5 MB.');
     alert.mockRestore();
   });
 
   it('renders existing image and invokes removal', () => {
     const remove = jest.fn();
-    render(<ProfileImagePicker label="Banner" value="data:image/png;base64,x" aspectRatio="banner" onChange={jest.fn()} onRemove={remove} />);
+    render(
+      <ProfileImagePicker
+        label="Banner"
+        value="data:image/png;base64,x"
+        aspectRatio="banner"
+        onChange={jest.fn()}
+        onRemove={remove}
+      />
+    );
     expect(screen.getByAltText('Previsualización de banner')).toHaveAttribute('src', 'data:image/png;base64,x');
     fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
     expect(remove).toHaveBeenCalled();

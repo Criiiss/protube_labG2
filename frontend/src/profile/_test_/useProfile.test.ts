@@ -13,8 +13,15 @@ jest.mock('../profileApi.ts', () => ({
 
 describe('useProfile', () => {
   const profile = {
-    userId: 1, username: 'user', displayName: 'User', biography: null, avatarUrl: null, bannerUrl: null,
-    subscriptionsVisibility: 'PRIVATE' as const, likedVideosVisibility: 'PRIVATE' as const, createdAt: '2026-01-01',
+    userId: 1,
+    username: 'user',
+    displayName: 'User',
+    biography: null,
+    avatarUrl: null,
+    bannerUrl: null,
+    subscriptionsVisibility: 'PRIVATE' as const,
+    likedVideosVisibility: 'PRIVATE' as const,
+    createdAt: '2026-01-01',
   };
 
   beforeEach(() => {
@@ -28,7 +35,9 @@ describe('useProfile', () => {
     await act(async () => {});
     expect(result.current.profile).toEqual(profile);
     (profileApi.updateProfile as jest.Mock).mockResolvedValue({ ...profile, displayName: 'New' });
-    await act(async () => result.current.saveProfile({ displayName: 'New', biography: null, avatarUrl: null, bannerUrl: null }));
+    await act(async () =>
+      result.current.saveProfile({ displayName: 'New', biography: null, avatarUrl: null, bannerUrl: null })
+    );
     expect(result.current.profile?.displayName).toBe('New');
   });
 

@@ -26,7 +26,11 @@ describe('useCatalog', () => {
 
   it('does not update after unmount', async () => {
     let resolve!: (value: unknown) => void;
-    (api as jest.Mock).mockReturnValue(new Promise((r) => { resolve = r; }));
+    (api as jest.Mock).mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      })
+    );
     const { result, unmount } = renderHook(() => useCatalog());
     unmount();
     await act(async () => resolve([{ id: 'late' }]));

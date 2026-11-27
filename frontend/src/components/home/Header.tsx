@@ -13,7 +13,15 @@ interface HeaderProps {
   onLogout?: () => void;
 }
 
-export function Header({ onSearch, searchValue, onAction, user, sessionLoading, onLogout, onNotifications }: HeaderProps) {
+export function Header({
+  onSearch,
+  searchValue,
+  onAction,
+  user,
+  sessionLoading,
+  onLogout,
+  onNotifications,
+}: HeaderProps) {
   const baseUrl = getEnv().BASE_URL;
   return (
     <header className="site-header">

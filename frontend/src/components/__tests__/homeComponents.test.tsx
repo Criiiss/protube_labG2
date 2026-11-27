@@ -5,7 +5,10 @@ import { VideoCard } from '../home/VideoCard.tsx';
 import { VideoCarousel } from '../home/VideoCarousel.tsx';
 
 describe('home components', () => {
-  const categories = [{ id: 'all', label: 'Todos' }, { id: 'music', label: 'Música' }];
+  const categories = [
+    { id: 'all', label: 'Todos' },
+    { id: 'music', label: 'Música' },
+  ];
   const video = {
     id: 'v1',
     title: 'Vídeo de prueba',
@@ -48,7 +51,12 @@ describe('home components', () => {
 
   it('moves through carousel and pagination', () => {
     const select = jest.fn();
-    render(<VideoCarousel videos={[video, { ...video, id: 'v2', title: 'Dos' }, { ...video, id: 'v3', title: 'Tres' }]} onSelect={select} />);
+    render(
+      <VideoCarousel
+        videos={[video, { ...video, id: 'v2', title: 'Dos' }, { ...video, id: 'v3', title: 'Tres' }]}
+        onSelect={select}
+      />
+    );
     expect(screen.getByText(/Destacado 1 de 3/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente vídeo destacado' }));
     expect(screen.getByText(/Destacado 2 de 3/)).toBeInTheDocument();

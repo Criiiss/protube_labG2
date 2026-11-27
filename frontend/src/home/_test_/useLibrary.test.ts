@@ -5,12 +5,25 @@ describe('useLibrary', () => {
   beforeEach(() => localStorage.clear());
 
   it('reads valid collections and filters invalid values', () => {
-    localStorage.setItem('protube-library-2', JSON.stringify({
-      saved: ['a', 1], later: ['b'], liked: null, hidden: [], history: ['c'], subscriptions: ['channel'],
-    }));
+    localStorage.setItem(
+      'protube-library-2',
+      JSON.stringify({
+        saved: ['a', 1],
+        later: ['b'],
+        liked: null,
+        hidden: [],
+        history: ['c'],
+        subscriptions: ['channel'],
+      })
+    );
     const { result } = renderHook(() => useLibrary(2));
     expect(result.current.library).toEqual({
-      saved: ['a'], later: ['b'], liked: [], hidden: [], history: ['c'], subscriptions: ['channel'],
+      saved: ['a'],
+      later: ['b'],
+      liked: [],
+      hidden: [],
+      history: ['c'],
+      subscriptions: ['channel'],
     });
   });
 
@@ -25,9 +38,17 @@ describe('useLibrary', () => {
   });
 
   it('keeps history unique and capped at 200 items', () => {
-    localStorage.setItem('protube-library-1', JSON.stringify({
-      saved: [], later: [], liked: [], hidden: [], history: Array.from({ length: 200 }, (_, i) => `v${i}`), subscriptions: [],
-    }));
+    localStorage.setItem(
+      'protube-library-1',
+      JSON.stringify({
+        saved: [],
+        later: [],
+        liked: [],
+        hidden: [],
+        history: Array.from({ length: 200 }, (_, i) => `v${i}`),
+        subscriptions: [],
+      })
+    );
     const { result } = renderHook(() => useLibrary(1));
     act(() => result.current.visit('v1'));
     expect(result.current.library.history[0]).toBe('v1');
@@ -36,7 +57,9 @@ describe('useLibrary', () => {
   });
 
   it('switches storage keys when the user changes', () => {
-    const { result, rerender } = renderHook(({ id }) => useLibrary(id), { initialProps: { id: 1 as number | undefined } });
+    const { result, rerender } = renderHook(({ id }) => useLibrary(id), {
+      initialProps: { id: 1 as number | undefined },
+    });
     act(() => result.current.toggle('liked', 'v1'));
     rerender({ id: 2 });
     expect(result.current.library.liked).toEqual([]);

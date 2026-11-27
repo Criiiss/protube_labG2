@@ -42,18 +42,22 @@ describe('api', () => {
 
   it('exposes server messages and fields', async () => {
     fetchMock.mockResponseOnce(JSON.stringify({ message: 'Invalid', fields: { email: 'bad' } }), { status: 422 });
-    await expect(api('/test')).rejects.toEqual(expect.objectContaining({
-      message: 'Invalid',
-      status: 422,
-      fields: { email: 'bad' },
-    }));
+    await expect(api('/test')).rejects.toEqual(
+      expect.objectContaining({
+        message: 'Invalid',
+        status: 422,
+        fields: { email: 'bad' },
+      })
+    );
 
     fetchMock.mockResponseOnce('not-json', { status: 500 });
-    await expect(api('/test')).rejects.toEqual(expect.objectContaining({
-      message: 'No se pudo completar la solicitud.',
-      status: 500,
-      fields: {},
-    }));
+    await expect(api('/test')).rejects.toEqual(
+      expect.objectContaining({
+        message: 'No se pudo completar la solicitud.',
+        status: 500,
+        fields: {},
+      })
+    );
   });
 
   it('constructs ApiError with default fields', () => {
