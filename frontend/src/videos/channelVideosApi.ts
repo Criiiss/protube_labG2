@@ -68,9 +68,6 @@ export async function getMyChannelVideos(userId: number, tab: Exclude<VideoTab, 
     drafts: 'DRAFT',
   };
   const status = statusByTab[tab];
-  const url = new URL(`${getEnv().API_BASE_URL}/profiles/me/videos`);
-  url.searchParams.set('userId', String(userId));
-  url.searchParams.set('status', status);
-
-  return requestVideos(url.toString());
+  const query = new URLSearchParams({ userId: String(userId), status });
+  return requestVideos(`${getEnv().API_BASE_URL}/profiles/me/videos?${query}`);
 }

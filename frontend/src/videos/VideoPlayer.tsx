@@ -4,6 +4,7 @@ import { getEnv } from '../utils/Env';
 import './VideoPlayer.css';
 import type { SessionUser } from '../auth/api';
 import { CommentsSection } from '../comments/CommentsSection';
+import { formatVideoDate } from '../utils/formatDate';
 
 interface VideoPlayerProps {
   video: Video;
@@ -96,7 +97,7 @@ export function VideoPlayer({ video, user }: VideoPlayerProps) {
 
         <div className="video-player-meta">
           <span>{video.views}</span>
-          {video.published && <span>{video.published}</span>}
+          {formatVideoDate(video) && <span>{formatVideoDate(video)}</span>}
         </div>
 
         <div className="video-player-description">
