@@ -6,6 +6,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.web.servlet.config.annotation.*;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import java.util.List;
 
 @Configuration
 @EnableWebMvc
@@ -40,5 +44,11 @@ public class MvcConfig implements WebMvcConfigurer {
                 .allowCredentials(true);
         registry.addMapping("/auth/**")
                 .allowedOriginPatterns("*");
+    }
+    @Override
+    public void extendMessageConverters(List<HttpMessageConverter<?>> converters) {
+        for (HttpMessageConverter<?> converter : converters)
+            if (converter instanceof MappingJackson2HttpMessageConverter json)
+                json.getObjectMapper().disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 }

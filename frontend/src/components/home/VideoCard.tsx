@@ -2,6 +2,7 @@ import type { Video } from '../../data/home';
 import { Icon } from './Icon';
 import { useState } from 'react';
 import { getEnv } from '../../utils/Env';
+import { formatVideoDate } from '../../utils/formatDate';
 
 export type VideoAction = 'saved' | 'later' | 'liked' | 'hidden' | 'share' | 'subscriptions' | 'playlist';
 export function VideoCard({
@@ -43,13 +44,7 @@ export function VideoCard({
             {video.channel}
           </a>
           <p>
-            {video.views} ·{' '}
-            {video.createdAt
-              ? new Intl.RelativeTimeFormat('es', { numeric: 'auto' }).format(
-                  -Math.max(0, Math.floor((Date.now() - Date.parse(video.createdAt)) / 86400000)),
-                  'day'
-                )
-              : video.published}
+            {video.views} · {formatVideoDate(video)}
           </p>
         </div>
         {onAction && (
