@@ -1,0 +1,100 @@
+.settings-page {
+  display: grid;
+  gap: 20px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+  color: #f1f3f7;
+}
+
+.settings-page h1 {
+  margin: 0;
+}
+
+.settings-card {
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+  border: 1px solid #ffffff0d;
+  border-radius: 12px;
+  background: #161b24;
+}
+
+.settings-card h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.settings-card p {
+  margin: 0;
+}
+
+.settings-card > a,
+.settings-card > button {
+  justify-self: start;
+  text-decoration: none;
+}
+
+.settings-hint,
+.settings-loading {
+  color: #9aa4b2;
+  font-size: 0.9rem;
+}
+
+.settings-ok {
+  color: #6ee7b7;
+}
+
+.settings-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.settings-list dt {
+  color: #9aa4b2;
+}
+
+.settings-list dd {
+  margin: 0;
+}
+
+.settings-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #6ee7b71f;
+  color: #6ee7b7;
+  font-size: 0.75rem;
+}
+
+.settings-badge--warning {
+  background: #fbbf241f;
+  color: #fbbf24;
+}
+
+.settings-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.settings-danger {
+  border-color: #f8717140;
+}
+
+.settings-danger-button {
+  justify-self: start;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 8px;
+  background: #dc2626;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-danger-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

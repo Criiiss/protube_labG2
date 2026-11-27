@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { changeUsername, getMyProfile, removeAvatar, removeBanner, updatePrivacy, updateProfile } from './profileApi';
+import { changeUsername, getMyProfile, removeAvatar, removeBanner, updateProfile } from './profileApi';
 import ProfileEditForm from './ProfileEditForm';
 import ProfileHeader from './ProfileHeader';
 import ProfileStats from './ProfileStats';
@@ -116,18 +116,6 @@ export function ProfilePage({ userId, onUpdated }: ProfilePageProps) {
     }
   };
 
-  const savePrivacy = async (data: Parameters<typeof updatePrivacy>[1]) => {
-    setSaving(true);
-    setMessage(null);
-
-    try {
-      const updatedProfile = await updatePrivacy(userId, data);
-      setProfile(updatedProfile);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const saveUsername = async (username: string) => {
     setSaving(true);
     setMessage(null);
@@ -159,7 +147,6 @@ export function ProfilePage({ userId, onUpdated }: ProfilePageProps) {
           saving={saving}
           onSaveProfile={saveProfile}
           onSaveUsername={saveUsername}
-          onSavePrivacy={savePrivacy}
           onRemoveAvatar={handleRemoveAvatar}
           onRemoveBanner={handleRemoveBanner}
           onCancel={() => setEditing(false)}

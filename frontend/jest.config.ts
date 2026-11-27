@@ -7,6 +7,9 @@ export default {
   preset: 'ts-jest',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   testEnvironment: 'jest-environment-jsdom',
+  moduleNameMapper: {
+    '\\.css$': '<rootDir>/src/utils/__mocks__/styleMock.ts',
+  },
   transform: {
     ...tsJestTransformCfg,
   },

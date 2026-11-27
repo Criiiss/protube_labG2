@@ -60,6 +60,21 @@ public class AuthController {
         response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
     }
     @GetMapping("/session") public AuthService.User session(HttpServletRequest request) { return auth.user(requireUser(request, auth)); }
+    public record Confirmation(String confirmation) {}
+    @GetMapping("/account") public AuthService.Account account(HttpServletRequest request) { return auth.account(requireUser(request, auth)); }
+    @PostMapping("/account/password-email") public Map<String, String> passwordEmail(HttpServletRequest request) {
+        Long id = requireUser(request, auth);
+        limiter.check("mail:" + request.getRemoteAddr(), 5);
+        auth.sendPasswordReset(id);
+        return Map.of("message", "Te hemos enviado un enlace a tu email para cambiar la contraseña.");
+    }
+    @DeleteMapping("/account") public Map<String, String> deleteAccount(@RequestBody Confirmation body, HttpServletRequest request, HttpServletResponse response) {
+        Long id = requireUser(request, auth);
+        limiter.check("delete-account:" + id, 5);
+        auth.deleteAccount(id, body.confirmation());
+        logout(request, response);
+        return Map.of("message", "Tu cuenta se ha eliminado.");
+    }
     @PostMapping("/logout") public Map<String, String> logout(HttpServletRequest request, HttpServletResponse response) {
         if (request.getSession(false) != null) request.getSession(false).invalidate();
         response.addHeader(HttpHeaders.SET_COOKIE, ResponseCookie.from("JSESSIONID", "").path("/").httpOnly(true).secure(secure).sameSite("Lax").maxAge(0).build().toString());

@@ -92,6 +92,32 @@ class AuthIntegrationTest {
         assertThrows(AuthFailure.class, () -> auth.register(registration(username)));
         assertFalse(users.existsByUsername(username));
     }
+    @Test void settingsShowTheAccountSendTheResetLinkAndDeleteIt() throws Exception {
+        activeAccount();
+        var result = postJson("/api/auth/login", Map.of("identifier", username, "password", "ValidPass1"), new MockHttpSession()).andExpect(status().isOk()).andReturn();
+        var session = (MockHttpSession) result.getRequest().getSession();
+        mvc.perform(get("/api/auth/account").session(session)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(username + "@example.com"))
+                .andExpect(jsonPath("$.emailVerified").value(true))
+                .andExpect(jsonPath("$.provider").value("LOCAL"));
+        links.clear();
+        postJson("/api/auth/account/password-email", Map.of(), session).andExpect(status().isOk());
+        assertTrue(links.get(username + "@example.com").contains("/#/reset?token="));
+        mvc.perform(deleteAccount(session, "WrongPass1")).andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.confirmation").exists());
+        assertTrue(users.findByUsername(username).isPresent());
+        mvc.perform(deleteAccount(session, "ValidPass1")).andExpect(status().isOk());
+        assertTrue(session.isInvalid());
+        assertTrue(users.findByUsername(username).isEmpty());
+        mvc.perform(get("/api/auth/account")).andExpect(status().isUnauthorized());
+        assertThrows(AuthFailure.class, () -> auth.login(username, "ValidPass1"));
+    }
+    private RequestBuilder deleteAccount(MockHttpSession session, String confirmation) throws Exception {
+        return delete("/api/auth/account").session(session).header("X-Protube-Request", "1").contentType("application/json").content(json.writeValueAsString(Map.of("confirmation", confirmation)));
+    }
+    @Test void settingsRequireASession() throws Exception {
+        mvc.perform(get("/api/auth/account")).andExpect(status().isUnauthorized());
+        postJson("/api/auth/account/password-email", Map.of(), new MockHttpSession()).andExpect(status().isUnauthorized());
+    }
     @Test void browserCanRegisterVerifyResetAndEditOnlyOwnProfile() throws Exception {
         var browser = new MockHttpSession();
         mvc.perform(get("/api/auth/config")).andExpect(status().isOk()).andExpect(jsonPath("$.minimumAge").value(13));
