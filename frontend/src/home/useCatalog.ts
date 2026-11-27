@@ -15,7 +15,7 @@ export function useCatalog(route?: string, userId?: number) {
         }
       })
       .catch(() => {
-        if (alive) setError('No se pudo cargar el catálogo. Puedes explorar el contenido de muestra.');
+        if (alive) setError('No se pudo cargar el catálogo. Inténtalo de nuevo en unos segundos.');
       })
       .finally(() => {
         if (alive) setLoading(false);
