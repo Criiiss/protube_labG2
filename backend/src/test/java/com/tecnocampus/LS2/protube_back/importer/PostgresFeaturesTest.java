@@ -97,6 +97,26 @@ class PostgresFeaturesTest {
         assertThat(importer.importSamples()).isZero();
     }
 
+    @Test void samplesAreRemovedOnceThereAreRealVideos(@TempDir Path dir) throws Exception {
+        importer.importSamples();
+        long samples = count("SELECT COUNT(*) FROM videos WHERE file_name LIKE 'sample-%'");
+        assertThat(samples).isPositive();
+        Files.writeString(dir.resolve("41.json"), """
+                { "title": "Vídeo real del videoGrabber", "user": "Canal Real", "timestamp": 1600000000,
+                  "meta": { "comments": [ { "text": "Buen vídeo", "author": "Pixel Party" } ] } }""");
+        importer.importDirectory(dir);
+
+        assertThat(importer.hasRealVideos()).isTrue();
+        assertThat(importer.removeSamples()).isEqualTo((int) samples);
+        assertThat(count("SELECT COUNT(*) FROM videos WHERE file_name LIKE 'sample-%'")).isZero();
+        assertThat(count("SELECT COUNT(*) FROM videos WHERE file_name = '41.mp4'")).isEqualTo(1);
+        // Empty sample channels are gone; one that commented on a real video stays, and so does the real channel
+        assertThat(count("SELECT COUNT(*) FROM users WHERE username = 'Cocina Fácil'")).isZero();
+        assertThat(count("SELECT COUNT(*) FROM users WHERE username = 'Pixel Party'")).isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM users WHERE username = 'Canal Real'")).isEqualTo(1);
+        assertThat(importer.removeSamples()).isZero(); // nothing left to remove
+    }
+
     @Test void importedChannelsDontTakeOverRealAccounts() {
         jdbc.update("INSERT INTO users (username, email, password_hash, auth_provider) VALUES ('Real', 'r@x.com', 'h', 'LOCAL')");
         long imported = importer.importedUser("Real");

@@ -76,20 +76,45 @@ public class VideoImporter {
 
     /** Sample catalogue so the app has content before anyone runs the videoGrabber. */
     public int importSamples() {
+        List<Sample> samples = samples();
+        int imported = 0;
+        for (int i = 0; i < samples.size(); i++) {
+            Sample s = samples.get(i);
+            long when = Instant.now().minus(Duration.ofDays(s.daysAgo())).getEpochSecond();
+            Grabbed grabbed = new Grabbed(null, null, s.durationSec(), s.title(), s.channel(), when,
+                    new Meta(s.description(), List.of(), s.tags(), s.views(), 0L, List.of()));
+            if (importVideo("sample-" + (i + 1), grabbed, null)) imported++;
+        }
+        return imported;
+    }
+
+    private List<Sample> samples() {
         try (InputStream in = new ClassPathResource("samples/sample-videos.json").getInputStream()) {
-            List<Sample> samples = json.readValue(in, new TypeReference<>() {});
-            int imported = 0;
-            for (int i = 0; i < samples.size(); i++) {
-                Sample s = samples.get(i);
-                long when = Instant.now().minus(Duration.ofDays(s.daysAgo())).getEpochSecond();
-                Grabbed grabbed = new Grabbed(null, null, s.durationSec(), s.title(), s.channel(), when,
-                        new Meta(s.description(), List.of(), s.tags(), s.views(), 0L, List.of()));
-                if (importVideo("sample-" + (i + 1), grabbed, null)) imported++;
-            }
-            return imported;
+            return json.readValue(in, new TypeReference<>() {});
         } catch (IOException ex) {
             throw new IllegalStateException("samples/sample-videos.json no se puede leer", ex);
         }
+    }
+    public boolean hasRealVideos() {
+        return exists("SELECT COUNT(*) FROM videos WHERE file_name NOT LIKE 'sample-%'", null);
+    }
+
+    /**
+     * Deletes the sample videos (their tags, comments, likes, views and playlist entries go with them through
+     * ON DELETE CASCADE) and the sample channels left without videos or comments.
+     * @return how many sample videos were deleted
+     */
+    public int removeSamples() {
+        return Objects.requireNonNull(tx.execute(status -> {
+            int removed = jdbc.update("DELETE FROM videos WHERE file_name LIKE 'sample-%'");
+            if (removed > 0)
+                for (String channel : samples().stream().map(Sample::channel).distinct().toList())
+                    jdbc.update("""
+                            DELETE FROM users u WHERE u.username = ? AND u.auth_provider = 'IMPORTED'
+                              AND NOT EXISTS (SELECT 1 FROM videos v WHERE v.owner_id = u.id)
+                              AND NOT EXISTS (SELECT 1 FROM comments c WHERE c.author_id = u.id)""", channel);
+            return removed;
+        }));
     }
 
     /** One transaction per video: either everything (video, tags, comments...) is saved or nothing. */
@@ -150,7 +175,7 @@ public class VideoImporter {
     }
 
     private boolean exists(String sql, Object arg) {
-        Integer count = jdbc.queryForObject(sql, Integer.class, arg);
+        Integer count = arg == null ? jdbc.queryForObject(sql, Integer.class) : jdbc.queryForObject(sql, Integer.class, arg);
         return count != null && count > 0;
     }
     private static Timestamp time(Long epochSeconds) {

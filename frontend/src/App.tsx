@@ -12,7 +12,7 @@ import type { VideoAction } from './components/home/VideoCard';
 import { VideoCarousel } from './components/home/VideoCarousel';
 import { VideoPlayer } from './videos/VideoPlayer';
 
-import { categories, demoVideos } from './data/home';
+import { categories } from './data/home';
 import type { Video } from './data/home';
 
 import { useSession } from './auth/useSession';
@@ -31,8 +31,7 @@ import { WatchPage } from './studio/WatchPage';
 import { useStudioNotifications } from './studio/useStudioNotifications';
 
 /** Every catalogue video (imported or published from Studio) plays in VideoPlayer; /watch?id= is Studio's preview. */
-const watchHash = (video: Video, sampleMode: boolean) =>
-  `/watch?video=${encodeURIComponent(video.id)}${sampleMode ? '&sample=1' : ''}`;
+const watchHash = (video: Video) => `/watch?video=${encodeURIComponent(video.id)}`;
 
 function App() {
   const env = getEnv();
@@ -42,9 +41,6 @@ function App() {
   const [category, setCategory] = useState('all');
   const [notice, setNotice] = useState('');
   const [location, setLocation] = useState(window.location.hash || '#/');
-  const [sampleMode, setSampleMode] = useState(
-    () => new URLSearchParams(window.location.hash.split('?')[1]).get('sample') === '1'
-  );
   const [limit, setLimit] = useState(12);
   const [sort, setSort] = useState('recommended');
 
@@ -79,7 +75,6 @@ function App() {
       const nextLocation = window.location.hash || '#/';
 
       setLocation(nextLocation);
-      setSampleMode(new URLSearchParams(nextLocation.split('?')[1]).get('sample') === '1');
       setLimit(12);
 
       window.scrollTo(0, 0);
@@ -90,7 +85,7 @@ function App() {
     return () => window.removeEventListener('hashchange', update);
   }, []);
 
-  const videos = sampleMode ? demoVideos : catalog.videos;
+  const videos = catalog.videos;
 
   const selectedVideo = selectedVideoId ? videos.find((video) => video.id === selectedVideoId) : undefined;
 
@@ -147,12 +142,12 @@ function App() {
       visit(video.id);
     }
 
-    window.location.hash = watchHash(video, sampleMode);
+    window.location.hash = watchHash(video);
   };
 
   async function action(type: VideoAction, video: Video) {
     if (type === 'share') {
-      const link = `${window.location.origin}${window.location.pathname}#${watchHash(video, sampleMode)}`;
+      const link = `${window.location.origin}${window.location.pathname}#${watchHash(video)}`;
 
       try {
         await navigator.clipboard.writeText(link);
@@ -218,7 +213,7 @@ function App() {
   } else if (isStudioWatchPage) {
     content = <WatchPage key={studioVideoId} id={studioVideoId!} />;
   } else if (isWatchPage) {
-    if (!selectedVideo && !sampleMode && catalog.loading) {
+    if (!selectedVideo && catalog.loading) {
       content = (
         <p className="profile-state" role="status">
           Cargando vídeo...
@@ -311,16 +306,6 @@ function App() {
               <span>.</span>
             </h1>
           </div>
-
-          <button
-            className="text-button"
-            onClick={() => {
-              setSampleMode(!sampleMode);
-              setLimit(12);
-            }}
-          >
-            {sampleMode ? 'Ver catálogo real' : 'Explorar contenido de muestra'}
-          </button>
         </div>
 
         <div className="catalog-toolbar">
@@ -340,18 +325,18 @@ function App() {
           </label>
 
           <span className="demo-label">
-            {sampleMode ? 'Contenido de muestra' : 'Catálogo'}
+            Catálogo
             {session.user ? ' · listas guardadas en este navegador' : ''}
           </span>
         </div>
 
-        {catalog.error && !sampleMode && (
+        {catalog.error && (
           <p className="form-message" role="status">
             {catalog.error}
           </p>
         )}
 
-        {catalog.loading && !sampleMode ? (
+        {catalog.loading ? (
           <div className="video-grid" aria-label="Cargando vídeos" role="status">
             {Array.from({ length: 6 }, (_, index) => (
               <div key={index} className="video-skeleton">
@@ -365,13 +350,7 @@ function App() {
           <div className="empty-state">
             <h2>Todavía no hay vídeos aquí</h2>
 
-            <p>Puedes explorar las muestras mientras llega el contenido real.</p>
-
-            {!sampleMode && (
-              <button className="primary-button" onClick={() => setSampleMode(true)}>
-                Ver muestras
-              </button>
-            )}
+            <p>Cuando se publiquen vídeos de esta sección, aparecerán aquí.</p>
           </div>
         ) : showListing || sort !== 'recommended' ? (
           <section aria-label="Resultados">
